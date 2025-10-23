@@ -25,5 +25,4 @@ function Header({ operatorName }) {
   );
 }
 
-// ... component code remains the same
-export default React.memo(Header);
+export default Header;

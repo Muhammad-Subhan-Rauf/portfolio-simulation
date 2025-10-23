@@ -1,3 +1,5 @@
+// Original relative path: utils/formatters.js
+
 import { TEXTS } from '../constants';
 
 /**

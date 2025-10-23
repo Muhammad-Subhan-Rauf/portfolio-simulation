@@ -27,5 +27,4 @@ function Metrics({ currentData }) {
   );
 }
 
-// ... component code remains the same
-export default React.memo(Metrics);
+export default Metrics;

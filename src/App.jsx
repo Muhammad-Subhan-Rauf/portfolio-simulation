@@ -1,9 +1,4 @@
-
-// Original relative path: App.jsx
-
-// Original relative path: App.jsx
-
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import './App.css';
 import { TEXTS } from './constants';
 import { usePortfolioData } from './hooks/usePortfolioData';
@@ -15,124 +10,65 @@ import Metrics from './components/Metrics';
 import PositionsTable from './components/PositionsTable';
 
 function App() {
-  const { datasets, fileStatus, isLoading, loadFiles, updateColor, loadOptimalFile } = usePortfolioData();
+  const { data, operatorName, fileStatus, isLoading, loadData } = usePortfolioData();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(250);
 
-  // Refs for the requestAnimationFrame loop
-  const animationFrameId = useRef(null);
-  const lastUpdateTime = useRef(0);
+  const maxIndex = data ? data.equity.length - 1 : 0;
 
-  const maxIndex = useMemo(() => {
-    if (!datasets || datasets.length === 0) return 0;
-    // Find the maximum length among all datasets
-    return Math.max(...datasets.map(d => d.data.equity.length)) - 1;
-  }, [datasets]);
-
-  // The primary dataset for displaying metrics and positions is the first one, or the optimal one if present.
-  const primaryDataset = useMemo(() => {
-      const optimal = datasets.find(d => d.isOptimal);
-      return optimal || datasets[0];
-  }, [datasets]);
-
+  // Memoize the data for the current step to avoid recalculating on every render
   const currentStepData = useMemo(() => {
-    if (!primaryDataset) return null;
-    const data = primaryDataset.data;
-    // Clamp currentIndex to the actual length of the primary dataset
-    const safeIndex = Math.min(currentIndex, data.dates.length - 1);
-
+    if (!data) return null;
     return {
-      date: data.dates[safeIndex],
-      cash: data.cash[safeIndex],
-      cashout: data.cashout[safeIndex],
-      positions_value: data.positions_value[safeIndex],
-      pnl: data.pnl[safeIndex],
-      open_positions: data.open_positions[safeIndex],
-      closed_positions: data.closed_positions[safeIndex],
+      date: data.dates[currentIndex],
+      cash: data.cash[currentIndex],
+      cashout: data.cashout[currentIndex],
+      positions_value: data.positions_value[currentIndex],
+      pnl: data.pnl[currentIndex],
+      open_positions: data.open_positions[currentIndex],
+      closed_positions: data.closed_positions[currentIndex],
     };
-  }, [primaryDataset, currentIndex]);
-
-  // =================================================================
-  // START: OPTIMIZED ANIMATION LOOP using requestAnimationFrame
-  // =================================================================
-  const animate = useCallback((currentTime) => {
-    const timeSinceLastUpdate = currentTime - lastUpdateTime.current;
-
-    if (timeSinceLastUpdate >= speed) {
-      lastUpdateTime.current = currentTime;
-      setCurrentIndex((prevIndex) => {
-        if (prevIndex >= maxIndex) {
-          setIsPlaying(false);
-          return prevIndex;
-        }
-        return prevIndex + 1;
-      });
-    }
-    animationFrameId.current = requestAnimationFrame(animate);
-  }, [speed, maxIndex]);
-
+  }, [data, currentIndex]);
+  
+  // Playback timer effect
   useEffect(() => {
     if (isPlaying) {
-      lastUpdateTime.current = performance.now();
-      animationFrameId.current = requestAnimationFrame(animate);
-    } else {
-      if (animationFrameId.current) {
-        cancelAnimationFrame(animationFrameId.current);
-      }
+      const timer = setInterval(() => {
+        setCurrentIndex((prevIndex) => {
+          if (prevIndex >= maxIndex) {
+            setIsPlaying(false);
+            return prevIndex;
+          }
+          return prevIndex + 1;
+        });
+      }, speed);
+      return () => clearInterval(timer);
     }
-    return () => {
-      if (animationFrameId.current) {
-        cancelAnimationFrame(animationFrameId.current);
-      }
-    };
-  }, [isPlaying, animate]);
-  // =================================================================
-  // END: OPTIMIZED ANIMATION LOOP
-  // =================================================================
+  }, [isPlaying, speed, maxIndex]);
 
-  const handlePlayPause = useCallback(() => {
+  const handlePlayPause = () => {
     if (currentIndex >= maxIndex && !isPlaying) {
-      setCurrentIndex(0);
+      setCurrentIndex(0); // Reset if at the end
     }
-    setIsPlaying(prevIsPlaying => !prevIsPlaying);
-  }, [currentIndex, maxIndex, isPlaying]);
+    setIsPlaying(!isPlaying);
+  };
 
-  const handleFrameChange = useCallback((newIndex) => {
+  const handleFrameChange = (newIndex) => {
     setIsPlaying(false);
     setCurrentIndex(newIndex);
-  }, []);
-
-  const handleStepChange = useCallback((direction) => {
-    setIsPlaying(false);
-    setCurrentIndex((prevIndex) => {
-      const newIndex = prevIndex + direction;
-      if (newIndex < 0) return 0;
-      if (newIndex > maxIndex) return maxIndex;
-      return newIndex;
-    });
-  }, [maxIndex]);
+  };
   
-  const handleSpeedChange = useCallback((newSpeed) => {
-    setSpeed(newSpeed);
-  }, []);
-
-  const handleFileSelect = useCallback((files) => {
+  const handleFileSelect = useCallback((file) => {
     setIsPlaying(false);
     setCurrentIndex(0);
-    loadFiles(files);
-  }, [loadFiles]);
-
-  const handleOptimalFileSelect = useCallback(() => {
-    setIsPlaying(false);
-    setCurrentIndex(0);
-    loadOptimalFile();
-  }, [loadOptimalFile]);
+    loadData(file);
+  }, [loadData]);
 
 
   return (
     <>
-      <Header operatorName={primaryDataset?.name || '...'} />
+      <Header operatorName={operatorName} />
       
       <Controls
         currentIndex={currentIndex}
@@ -141,17 +77,13 @@ function App() {
         isPlaying={isPlaying}
         onPlayPause={handlePlayPause}
         onFrameChange={handleFrameChange}
-        onStepChange={handleStepChange}
-        onSpeedChange={handleSpeedChange}
+        onSpeedChange={setSpeed}
         onFileSelect={handleFileSelect}
-        onOptimalFileSelect={handleOptimalFileSelect}
-        onColorChange={updateColor}
         fileStatus={fileStatus}
-        datasets={datasets}
-        isDisabled={isLoading || datasets.length === 0}
+        isDisabled={isLoading || !data}
       />
 
-      <Chart datasets={datasets} currentIndex={currentIndex} />
+      <Chart data={data} currentIndex={currentIndex} />
 
       <Metrics currentData={currentStepData} />
 
