@@ -64,22 +64,24 @@ export const usePortfolioData = () => {
     };
 
     if (files && files.length > 0) {
-      // 1. Get colors currently in use.
-      const usedColors = new Set(datasets.map(ds => ds.color));
+      // 1. Create a frequency map of currently used colors.
+      const colorCounts = datasets.reduce((acc, ds) => {
+        acc[ds.color] = (acc[ds.color] || 0) + 1;
+        return acc;
+      }, {});
 
-      // 2. Find which preset colors are still available.
-      const availableColors = PRESET_COLORS.filter(c => !usedColors.has(c));
+      // 2. Sort the preset colors by their usage count (ascending).
+      // Unused colors will have a count of 0 and will appear first.
+      const sortedColorCandidates = [...PRESET_COLORS].sort((colorA, colorB) => {
+          const countA = colorCounts[colorA] || 0;
+          const countB = colorCounts[colorB] || 0;
+          return countA - countB;
+      });
 
+      // 3. Assign colors to new files cyclically from the sorted list.
       const newDatasetsPromises = Array.from(files).map((file, index) => {
-        let newColor;
-        // 3. Assign a unique color if one is available.
-        if (index < availableColors.length) {
-          newColor = availableColors[index];
-        } else {
-          // 4. Otherwise, assign a random color from the full palette.
-          newColor = PRESET_COLORS[Math.floor(Math.random() * PRESET_COLORS.length)];
-        }
-        return processFile(file, newColor);
+          const colorToAssign = sortedColorCandidates[index % sortedColorCandidates.length];
+          return processFile(file, colorToAssign);
       });
       
       const newDatasets = (await Promise.all(newDatasetsPromises)).filter(Boolean);
@@ -112,7 +114,7 @@ export const usePortfolioData = () => {
     }
     
     setIsLoading(false);
-  }, [datasets]); // Dependency must be `datasets` to get the latest `usedColors`
+  }, [datasets]); // Dependency is crucial for getting the latest color counts
 
   const removeDataset = useCallback((id) => {
     setDatasets(prev => prev.filter(ds => ds.id !== id));
