@@ -10,6 +10,7 @@ function Controls({
   speed,
   isPlaying,
   onFrameChange,
+  onStepChange, // Receive the handler
   onPlayPause,
   onSpeedChange,
   onFileSelect,
@@ -33,14 +34,6 @@ function Controls({
   const handleColorUpdate = (id, color) => {
     onUpdateDatasetColor(id, color);
   };
-
-  const handleStep = (direction) => {
-    const newIndex = currentIndex + direction;
-    if (newIndex >= 0 && newIndex <= maxIndex) {
-      onFrameChange(newIndex); // This function already pauses the playback
-    }
-  };
-
 
   return (
     <>
@@ -89,26 +82,15 @@ function Controls({
           </ul>
         </div>
       )}
-
-      {/* --- MODIFIED CONTROLS SECTION --- */}
-      <div className="controls-wrapper">
-        <div className="row step-control-group">
-          <div className="step-label-group">
-            <label className="step-label" htmlFor="frame">{TEXTS.controls_hour}</label>
-            <div className="step-buttons">
-              <button 
-                className="step-button" 
-                onClick={() => handleStep(-1)} 
-                disabled={isDisabled || currentIndex <= 0}
-                title="Step Back"
-              >◀</button>
-              <button 
-                className="step-button" 
-                onClick={() => handleStep(1)} 
-                disabled={isDisabled || currentIndex >= maxIndex}
-                title="Step Forward"
-              >▶</button>
-            </div>
+      
+      <div className="new-controls-container">
+        {/* Step Section */}
+        <div className="control-group">
+          <label htmlFor="frame" className="neon-text">{TEXTS.controls_hour}</label>
+          <div className="step-buttons">
+            {/* Use the onStepChange handler here */}
+            <button onClick={() => onStepChange(-1)} disabled={isDisabled || currentIndex <= 0}>◀</button>
+            <button onClick={() => onStepChange(1)} disabled={isDisabled || currentIndex >= maxIndex}>▶</button>
           </div>
           <input
             type="range"
@@ -120,25 +102,30 @@ function Controls({
             disabled={isDisabled}
             onInput={(e) => onFrameChange(Number(e.target.value))}
           />
-          <output id="frameVal">{currentIndex}</output>
+          <output id="frameVal" className="neon-text">{currentIndex}</output>
         </div>
 
-        <div className="row play-speed-group">
-          <button onClick={onPlayPause} disabled={isDisabled}>
+        {/* Play/Pause Section */}
+        <div className="control-group">
+          <button onClick={onPlayPause} disabled={isDisabled} className="play-pause-btn neon-text">
             {isPlaying ? TEXTS.controls_pause : TEXTS.controls_play}
           </button>
-          <div className="speed-control">
-            <label htmlFor="speed">{TEXTS.controls_speed}</label>
-            <input
-              type="range"
-              id="speed"
-              min="1"
-              max="2000"
-              step="20"
-              value={speed}
-              onInput={(e) => onSpeedChange(Number(e.target.value))}
-            />
-          </div>
+        </div>
+        
+        {/* Speed Section */}
+        <div className="control-group">
+          <label htmlFor="speed" className="neon-text">{TEXTS.controls_speed}</label>
+          <input
+            type="range"
+            id="speed"
+            min="1"
+            max="2000"
+            step="20"
+            value={speed}
+            disabled={isDisabled}
+            onInput={(e) => onSpeedChange(Number(e.target.value))}
+          />
+          <span className="small neon-text">{TEXTS.controls_speed_unit}</span>
         </div>
       </div>
     </>

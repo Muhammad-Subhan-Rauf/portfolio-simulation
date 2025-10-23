@@ -42,9 +42,9 @@ function App() {
   const operatorName = primaryDataset?.operatorName || 'N/A';
   const data = primaryDataset?.data;
 
-  // Memoize the data for the current step to avoid recalculating on every render
+  // Memoize the data for the current step
   const currentStepData = useMemo(() => {
-    if (!data || currentIndex >= data.dates.length) return null; // Check bounds for primary data
+    if (!data || currentIndex >= data.dates.length) return null;
     return {
       date: data.dates[currentIndex],
       cash: data.cash[currentIndex],
@@ -74,7 +74,7 @@ function App() {
 
   const handlePlayPause = () => {
     if (currentIndex >= maxIndex && !isPlaying) {
-      setCurrentIndex(0); // Reset if at the end
+      setCurrentIndex(0);
     }
     setIsPlaying(!isPlaying);
   };
@@ -84,7 +84,7 @@ function App() {
     setCurrentIndex(newIndex);
   };
   
-  const handleFileSelect = useCallback((files) => { // files is now a FileList
+  const handleFileSelect = useCallback((files) => {
     setIsPlaying(false);
     setCurrentIndex(0);
     loadData(files);
@@ -94,6 +94,16 @@ function App() {
     removeDataset(idToRemove);
   }, [removeDataset]);
 
+  // Logic for the step buttons
+  const handleStepChange = useCallback((direction) => {
+    setIsPlaying(false); // Pause playback
+    setCurrentIndex((prevIndex) => {
+      const newIndex = prevIndex + direction;
+      if (newIndex < 0) return 0;
+      if (newIndex > maxIndex) return maxIndex;
+      return newIndex;
+    });
+  }, [maxIndex]);
 
   return (
     <>
@@ -106,6 +116,7 @@ function App() {
         isPlaying={isPlaying}
         onPlayPause={handlePlayPause}
         onFrameChange={handleFrameChange}
+        onStepChange={handleStepChange} // Pass the handler function
         onSpeedChange={setSpeed}
         onFileSelect={handleFileSelect}
         fileStatus={fileStatus}
@@ -126,7 +137,6 @@ function App() {
       )}
 
       <Metrics currentData={currentStepData} />
-
       <PositionsTable type="open" positions={currentStepData?.open_positions} />
       <PositionsTable type="closed" positions={currentStepData?.closed_positions} />
       
