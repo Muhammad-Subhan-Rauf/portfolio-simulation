@@ -10,21 +10,35 @@ import Controls from './components/Controls';
 import Chart from './components/Chart';
 import Metrics from './components/Metrics';
 import PositionsTable from './components/PositionsTable';
+import DatasetSelector from './components/DatasetSelector';
 
 function App() {
   const { datasets, fileStatus, isLoading, loadData, removeDataset, updateDatasetColor } = usePortfolioData();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(250);
+  const [selectedDatasetId, setSelectedDatasetId] = useState(null);
 
   // maxIndex is the max length across all datasets
   const maxIndex = useMemo(() => {
     if (!datasets || datasets.length === 0) return 0;
     return Math.max(...datasets.map(ds => ds.data.equity.length - 1));
   }, [datasets]);
+
+  // Set initial selection or update if selection is removed
+  useEffect(() => {
+    if (!selectedDatasetId && datasets.length > 0) {
+      setSelectedDatasetId(datasets[0].id);
+    } else if (selectedDatasetId && !datasets.find(ds => ds.id === selectedDatasetId)) {
+      setSelectedDatasetId(datasets.length > 0 ? datasets[0].id : null);
+    }
+  }, [datasets, selectedDatasetId]);
+
+  const primaryDataset = useMemo(() => {
+    if (!selectedDatasetId) return null;
+    return datasets.find(ds => ds.id === selectedDatasetId);
+  }, [datasets, selectedDatasetId]);
   
-  // For Metrics and Tables, we'll display data for the FIRST dataset.
-  const primaryDataset = datasets?.[0];
   const operatorName = primaryDataset?.operatorName || 'N/A';
   const data = primaryDataset?.data;
 
@@ -76,6 +90,10 @@ function App() {
     loadData(files);
   }, [loadData]);
 
+  const handleRemoveDataset = useCallback((idToRemove) => {
+    removeDataset(idToRemove);
+  }, [removeDataset]);
+
 
   return (
     <>
@@ -93,11 +111,19 @@ function App() {
         fileStatus={fileStatus}
         isDisabled={isLoading || datasets.length === 0}
         datasets={datasets}
-        onRemoveDataset={removeDataset}
+        onRemoveDataset={handleRemoveDataset}
         onUpdateDatasetColor={updateDatasetColor}
       />
 
       <Chart datasets={datasets} currentIndex={currentIndex} />
+
+      {datasets.length > 1 && (
+        <DatasetSelector
+          datasets={datasets}
+          selectedId={selectedDatasetId}
+          onSelect={setSelectedDatasetId}
+        />
+      )}
 
       <Metrics currentData={currentStepData} />
 

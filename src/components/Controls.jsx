@@ -1,40 +1,8 @@
 // Original relative path: components/Controls.jsx
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import { TEXTS } from '../constants';
-
-function useDebounce(value, delay) {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [value, delay]);
-  return debouncedValue;
-}
-
-function DatasetColorPicker({ dataset, onUpdateDatasetColor }) {
-  const [color, setColor] = useState(dataset.color);
-  const debouncedColor = useDebounce(color, 500);
-
-  useEffect(() => {
-    if (debouncedColor && debouncedColor !== dataset.color) {
-      onUpdateDatasetColor(dataset.id, debouncedColor);
-    }
-  }, [debouncedColor, dataset.id, dataset.color, onUpdateDatasetColor]);
-
-  return (
-    <input 
-      type="color" 
-      value={color} 
-      onChange={(e) => setColor(e.target.value)}
-      title="Select line color"
-    />
-  );
-}
+import ColorPicker from './ColorPicker';
 
 function Controls({
   currentIndex,
@@ -52,6 +20,7 @@ function Controls({
   onUpdateDatasetColor,
 }) {
   const fileInputRef = useRef(null);
+  const [editingColorId, setEditingColorId] = useState(null);
 
   const handleFileChange = (event) => {
     const files = event.target.files;
@@ -59,6 +28,10 @@ function Controls({
       onFileSelect(files);
     }
     event.target.value = null; 
+  };
+
+  const handleColorUpdate = (id, color) => {
+    onUpdateDatasetColor(id, color);
   };
 
   return (
@@ -86,10 +59,19 @@ function Controls({
               <li key={dataset.id}>
                 <span>{dataset.fileName}</span>
                 <div className="file-actions">
-                  <DatasetColorPicker 
-                    dataset={dataset} 
-                    onUpdateDatasetColor={onUpdateDatasetColor} 
+                  <div
+                    className="color-swatch"
+                    style={{ backgroundColor: dataset.color }}
+                    onClick={() => setEditingColorId(editingColorId === dataset.id ? null : dataset.id)}
+                    title="Change line color"
                   />
+                  {editingColorId === dataset.id && (
+                    <ColorPicker 
+                      dataset={dataset} 
+                      onUpdateDatasetColor={handleColorUpdate}
+                      onClose={() => setEditingColorId(null)}
+                    />
+                  )}
                   <button onClick={() => onRemoveDataset(dataset.id)} className="remove-btn">
                     &times;
                   </button>
