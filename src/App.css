@@ -1,0 +1,357 @@
+/* src/App.css */
+
+/* --- Font Import --- */
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&display=swap');
+
+/* --- Keyframes for Animations --- */
+@keyframes text-flicker {
+  0%, 100% {
+    text-shadow: 0 0 2px var(--primary-color), 0 0 5px var(--primary-color), 0 0 10px var(--primary-color);
+  }
+  50% {
+    text-shadow: 0 0 3px var(--primary-color), 0 0 7px var(--primary-color), 0 0 12px var(--primary-color);
+  }
+}
+
+/* --- Root Variables for the App --- */
+:root {
+  --primary-color: #FF0043;
+  --secondary-color: #5D71FC;
+  --bg-color: #191919;
+  --bg-color-2: #141414;
+  --font-family: 'Fira Code', 'Courier New', monospace;
+}
+
+/* --- Typography --- */
+h2 {
+  font-weight: 600;
+  border-bottom: 1px solid var(--primary-color);
+  width: fit-content;
+  padding-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+/* --- Layout & Controls --- */
+.row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 20px 0;
+}
+
+.controls label {
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.small, .metrics ul {
+  font-size: 14px;
+  color: var(--primary-color);
+  opacity: 0.8;
+}
+
+/* --- Buttons --- */
+button, .button-like {
+  font-family: var(--font-family);
+  background: transparent;
+  border: 1px solid var(--primary-color);
+  color: var(--primary-color);
+  padding: 8px 16px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 5px var(--primary-color);
+  display: inline-block;
+}
+
+button:hover, button:focus, .button-like:hover, .button-like:focus {
+  background: rgba(255, 0, 67, 0.1);
+  box-shadow: 0 0 10px var(--primary-color), 0 0 15px var(--primary-color);
+  outline: none;
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+  background: transparent;
+}
+
+/* --- Sliders (input[type=range]) --- */
+input[type=range] {
+  -webkit-appearance: none;
+  background: transparent;
+  width: 320px;
+}
+input[type=range]:focus {
+  outline: none;
+}
+input[type=range]:disabled::-webkit-slider-thumb {
+  background: var(--secondary-color);
+  box-shadow: none;
+}
+input[type=range]:disabled::-moz-range-thumb {
+  background: var(--secondary-color);
+  box-shadow: none;
+}
+
+/* Webkit (Chrome, Safari) */
+input[type=range]::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 2px;
+  cursor: pointer;
+  background: var(--primary-color);
+  border: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  border: 1px solid var(--primary-color);
+  height: 16px;
+  width: 16px;
+  background: var(--bg-color);
+  cursor: pointer;
+  margin-top: -7px; /* Position thumb correctly */
+  box-shadow: 0 0 8px var(--primary-color);
+}
+
+/* Firefox */
+input[type=range]::-moz-range-track {
+  width: 100%;
+  height: 2px;
+  cursor: pointer;
+  background: var(--secondary-color);
+  border: none;
+}
+input[type=range]::-moz-range-thumb {
+  border: 1px solid var(--primary-color);
+  height: 14px;
+  width: 14px;
+  background: var(--bg-color);
+  cursor: pointer;
+  box-shadow: 0 0 8px var(--primary-color);
+}
+
+/* --- Canvas --- */
+#canvas {
+  max-width: 100%;
+  height: auto;
+  margin-top: 16px;
+}
+
+/* --- Metrics & Output --- */
+.metrics { margin: 16px 0; }
+.metrics-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 16px;
+    font-size: 16px;
+    line-height: 1.5;
+    min-width: 25%;
+    width: 350px;
+}
+.metrics-grid span:nth-child(2n) {
+    text-align: right;
+    color: var(--secondary-color);
+    text-shadow: 0 0 2px var(--secondary-color), 0 0 5px var(--secondary-color);
+}
+.tableValue {
+  color: var(--secondary-color);
+  text-shadow: 0 0 2px var(--secondary-color), 0 0 5px var(--secondary-color);
+}
+output { font-weight: bold; }
+
+/* --- Table --- */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  border: 1px solid var(--primary-color);
+}
+
+caption {
+  text-align: left;
+  font-weight: 600;
+  margin: 8px 0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+th, td {
+  border: 1px solid var(--primary-color);
+  padding: 8px 10px;
+  text-align: right;
+  font-size: 14px; /* Smaller font for tables */
+}
+
+th {
+  background: rgba(255, 0, 67, 0.1);
+  font-weight: 600;
+}
+
+th:first-child, td:first-child {
+  text-align: left;
+}
+
+/* --- Header Component Styles --- */
+.headerContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding: 20px 0;
+  margin-bottom: 100px;
+}
+
+.headerContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.headerImage img {
+  width: 93px;
+  height: 124px;
+  object-fit: contain;
+  margin-bottom: 16px;
+}
+
+.textContainer {
+  font-family: "Copperplate", "Copperplate Gothic Light";
+  color: var(--primary-color);
+  text-shadow: none;
+  letter-spacing: 2px;
+}
+
+.knighterText {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.knighterText h1 {
+  font-size: 24px;
+  font-weight: 400;
+  margin: 0 15px;
+  padding: 0;
+  line-height: 1;
+}
+
+.line {
+  height: 1px;
+  width: 100px; /* Adjust width as needed */
+  background-color: var(--primary-color);
+}
+
+.textContainer p {
+  margin: 4px 0;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+
+/* Add these styles to your existing App.css file */
+
+.file-loader-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  max-width: 960px;
+  margin-bottom: 16px;
+}
+
+.file-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.button-like {
+  background-color: transparent;
+  border: 1px solid #FF0043;
+  color: #FF0043;
+  padding: 8px 16px;
+  font-family: 'Fira Code', monospace;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+  text-align: center;
+}
+
+.button-like:hover {
+  background-color: rgba(255, 0, 67, 0.1);
+}
+
+.optimal-button {
+  border-color: #5D71FC;
+  color: #5D71FC;
+}
+
+.optimal-button:hover {
+    background-color: rgba(93, 113, 252, 0.1);
+}
+
+.file-status {
+  color: #FF0043;
+  font-size: 12px;
+  font-family: 'Fira Code', monospace;
+}
+
+/* Dataset List */
+.dataset-list {
+  width: 100%;
+  max-width: 960px;
+  margin-bottom: 20px;
+  padding: 12px;
+  border: 1px solid rgba(255, 0, 67, 0.2);
+  border-radius: 4px;
+}
+
+.dataset-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.dataset-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Fira Code', monospace;
+  color: #FF0043;
+  font-size: 14px;
+}
+
+/* Styling for the native color picker */
+.color-picker {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  background-color: transparent;
+  border: 1px solid rgba(255, 0, 67, 0.5);
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+  overflow: hidden;
+}
+
+.color-picker::-webkit-color-swatch {
+  border-radius: 50%;
+  border: none;
+}
+
+.color-picker::-moz-color-swatch {
+  border-radius: 50%;
+  border: none;
+}
+
+.dataset-name {
+    opacity: 0.8;
+}

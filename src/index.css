@@ -1,0 +1,29 @@
+/* src/index.css */
+
+/* --- Global Reset & Page Setup --- */
+html {
+  box-sizing: border-box;
+}
+
+*, *:before, *:after {
+  box-sizing: inherit;
+}
+
+/* --- Global Body Styles --- */
+body {
+  /* These styles apply to the entire page, outside the React app root */
+  font-family: 'Fira Code', 'Courier New', monospace;
+  background-color: black;
+  color: #FF0043; /* Using direct value for clarity */
+  margin: 24px; /* This is the key fix for the layout */
+  text-shadow: 0 0 2px #FF0043, 0 0 5px #FF0043;
+
+  /* Scanline effect */
+  background-image: repeating-linear-gradient(
+    0deg,
+    #141414, /* var(--bg-color-2) */
+    #141414 1px,
+    transparent 3px,
+    transparent 6px
+  );
+}
