@@ -54,7 +54,7 @@ export const usePortfolioData = () => {
                     data: processed,
                     operatorName: getOperatorName(fileName),
                     fileName,
-                    color: `#${Math.floor(Math.random()*16777215).toString(16).padStart(6, '0')}`
+                    color: '#FF0043' // Default to primary color instead of random
                 };
             }
         } catch (error) {
@@ -82,7 +82,7 @@ export const usePortfolioData = () => {
             data: processed,
             operatorName: getOperatorName(fileName),
             fileName,
-            color: '#FF0043'
+            color: '#FF0043' // Default to primary color
           }]);
           setFileStatus(TEXTS.file_status_default);
         }

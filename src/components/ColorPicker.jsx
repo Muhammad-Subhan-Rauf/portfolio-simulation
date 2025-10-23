@@ -12,7 +12,17 @@ function useDebounce(value, delay) {
   return debouncedValue;
 }
 
-const PRESET_COLORS = ['#FF0043', '#5D71FC', '#00FF9C', '#FFD700', '#FFFFFF', '#FF5733'];
+// New color palette from the image, plus theme colors
+const PRESET_COLORS = [
+  '#FF0043', // Theme Primary
+  '#5D71FC', // Theme Secondary
+  '#CF8863', // Orange
+  '#CFC363', // Yellow
+  '#6D9C72', // Green
+  '#4E95EE', // Blue
+  '#B57DFF', // Lavender
+  '#C36CE6', // Purple
+];
 
 function ColorPicker({ dataset, onUpdateDatasetColor, onClose }) {
   const [color, setColor] = useState(dataset.color);

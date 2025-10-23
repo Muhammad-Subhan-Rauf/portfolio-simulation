@@ -34,6 +34,14 @@ function Controls({
     onUpdateDatasetColor(id, color);
   };
 
+  const handleStep = (direction) => {
+    const newIndex = currentIndex + direction;
+    if (newIndex >= 0 && newIndex <= maxIndex) {
+      onFrameChange(newIndex); // This function already pauses the playback
+    }
+  };
+
+
   return (
     <>
       <div className="row file-loader">
@@ -82,9 +90,26 @@ function Controls({
         </div>
       )}
 
-      <div className="row controls">
-        <div className="row">
-          <label htmlFor="frame">{TEXTS.controls_hour}</label>
+      {/* --- MODIFIED CONTROLS SECTION --- */}
+      <div className="controls-wrapper">
+        <div className="row step-control-group">
+          <div className="step-label-group">
+            <label className="step-label" htmlFor="frame">{TEXTS.controls_hour}</label>
+            <div className="step-buttons">
+              <button 
+                className="step-button" 
+                onClick={() => handleStep(-1)} 
+                disabled={isDisabled || currentIndex <= 0}
+                title="Step Back"
+              >◀</button>
+              <button 
+                className="step-button" 
+                onClick={() => handleStep(1)} 
+                disabled={isDisabled || currentIndex >= maxIndex}
+                title="Step Forward"
+              >▶</button>
+            </div>
+          </div>
           <input
             type="range"
             id="frame"
@@ -97,23 +122,23 @@ function Controls({
           />
           <output id="frameVal">{currentIndex}</output>
         </div>
-        <div className="row">
+
+        <div className="row play-speed-group">
           <button onClick={onPlayPause} disabled={isDisabled}>
             {isPlaying ? TEXTS.controls_pause : TEXTS.controls_play}
           </button>
-        </div>
-        <div className="row">
-          <label htmlFor="speed">{TEXTS.controls_speed}</label>
-          <input
-            type="range"
-            id="speed"
-            min="1"
-            max="2000"
-            step="20"
-            value={speed}
-            onInput={(e) => onSpeedChange(Number(e.target.value))}
-          />
-          <span className="small">{TEXTS.controls_speed_unit}</span>
+          <div className="speed-control">
+            <label htmlFor="speed">{TEXTS.controls_speed}</label>
+            <input
+              type="range"
+              id="speed"
+              min="1"
+              max="2000"
+              step="20"
+              value={speed}
+              onInput={(e) => onSpeedChange(Number(e.target.value))}
+            />
+          </div>
         </div>
       </div>
     </>

@@ -1,11 +1,13 @@
 // Original relative path: constants.js
 
+// Original relative path: constants.js
+
 export const TEXTS = {
   title: "Portfolio Simulation — Chart + Speed",
   header: "Portfolio Value simulation with operator {operatorName}",
   controls_hour: "Step",
-  controls_play: "▶︎ Play",
-  controls_pause: "❚❚ Pause",
+  controls_play: "▶ PLAY",
+  controls_pause: "❚❚ PAUSE",
   controls_speed: "Speed",
   controls_speed_unit: "(ms between steps)",
   file_loader_label: "Load Data File (.json)",
