@@ -1,3 +1,5 @@
+// Original relative path: hooks/usePortfolioData.js
+
 import { useState, useEffect, useCallback } from 'react';
 import { TEXTS } from '../constants';
 
@@ -32,49 +34,81 @@ const processData = (rawData) => {
 };
 
 export const usePortfolioData = () => {
-  const [data, setData] = useState(null);
-  const [operatorName, setOperatorName] = useState('Ⲗ');
+  const [datasets, setDatasets] = useState([]);
   const [fileStatus, setFileStatus] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadData = useCallback(async (file) => {
+  const loadData = useCallback(async (files) => {
     setIsLoading(true);
     setFileStatus(TEXTS.file_status_loading);
-    try {
-      let jsonData;
-      let fileName;
 
-      if (file) { // User uploaded a file
-        fileName = file.name;
-        const text = await file.text();
-        jsonData = JSON.parse(text);
-      } else { // Load default
-        fileName = `${operatorName}_consolidated_json.json`;
+    const processFile = async (file) => {
+        try {
+            const fileName = file.name;
+            const text = await file.text();
+            const jsonData = JSON.parse(text);
+            const processed = processData(jsonData);
+            if (processed) {
+                return {
+                    id: `${fileName}-${Date.now()}`,
+                    data: processed,
+                    operatorName: getOperatorName(fileName),
+                    fileName,
+                    color: `#${Math.floor(Math.random()*16777215).toString(16).padStart(6, '0')}`
+                };
+            }
+        } catch (error) {
+            console.error(`Failed to load or parse ${file.name}:`, error);
+        }
+        return null;
+    };
+
+    if (files && files.length > 0) {
+      const newDatasetsPromises = Array.from(files).map(processFile);
+      const newDatasets = (await Promise.all(newDatasetsPromises)).filter(Boolean);
+      setDatasets(prev => [...prev, ...newDatasets]);
+      setFileStatus(`${newDatasets.length} file(s) loaded.`);
+    } else if (datasets.length === 0) {
+      try {
+        const operatorName = 'Ⲗ';
+        const fileName = `${operatorName}_consolidated_json.json`;
         const response = await fetch(fileName);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        jsonData = await response.json();
+        const jsonData = await response.json();
+        const processed = processData(jsonData);
+        if (processed) {
+          setDatasets([{
+            id: `default-${Date.now()}`,
+            data: processed,
+            operatorName: getOperatorName(fileName),
+            fileName,
+            color: '#FF0043'
+          }]);
+          setFileStatus(TEXTS.file_status_default);
+        }
+      } catch (error) {
+        console.error("Failed to load or parse default data:", error);
+        setFileStatus(`Error loading default data: ${error.message}`);
+        setDatasets([]);
       }
-      
-      const processed = processData(jsonData);
-      if (processed) {
-        setData(processed);
-        setOperatorName(getOperatorName(fileName));
-        setFileStatus(`${TEXTS.file_status_loaded} ${fileName}`);
-      }
-    } catch (error) {
-      console.error("Failed to load or parse data:", error);
-      setFileStatus(`Error: ${error.message}`);
-      setData(null);
-    } finally {
-      setIsLoading(false);
     }
-  }, [operatorName]);
+    
+    setIsLoading(false);
+  }, [datasets.length]);
 
+  const removeDataset = useCallback((id) => {
+    setDatasets(prev => prev.filter(ds => ds.id !== id));
+  }, []);
 
-  // Load default data on initial mount
+  const updateDatasetColor = useCallback((id, color) => {
+    setDatasets(prev => prev.map(ds => ds.id === id ? { ...ds, color } : ds));
+  }, []);
+
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (datasets.length === 0) {
+      loadData();
+    }
+  }, [loadData, datasets.length]);
 
-  return { data, operatorName, fileStatus, isLoading, loadData };
+  return { datasets, fileStatus, isLoading, loadData, removeDataset, updateDatasetColor };
 };

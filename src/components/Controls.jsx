@@ -1,5 +1,40 @@
-import React, { useRef } from 'react';
+// Original relative path: components/Controls.jsx
+
+import React, { useRef, useState, useEffect } from 'react';
 import { TEXTS } from '../constants';
+
+function useDebounce(value, delay) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+  return debouncedValue;
+}
+
+function DatasetColorPicker({ dataset, onUpdateDatasetColor }) {
+  const [color, setColor] = useState(dataset.color);
+  const debouncedColor = useDebounce(color, 500);
+
+  useEffect(() => {
+    if (debouncedColor && debouncedColor !== dataset.color) {
+      onUpdateDatasetColor(dataset.id, debouncedColor);
+    }
+  }, [debouncedColor, dataset.id, dataset.color, onUpdateDatasetColor]);
+
+  return (
+    <input 
+      type="color" 
+      value={color} 
+      onChange={(e) => setColor(e.target.value)}
+      title="Select line color"
+    />
+  );
+}
 
 function Controls({
   currentIndex,
@@ -12,14 +47,18 @@ function Controls({
   onFileSelect,
   fileStatus,
   isDisabled,
+  datasets,
+  onRemoveDataset,
+  onUpdateDatasetColor,
 }) {
   const fileInputRef = useRef(null);
 
   const handleFileChange = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      onFileSelect(file);
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      onFileSelect(files);
     }
+    event.target.value = null; 
   };
 
   return (
@@ -35,9 +74,31 @@ function Controls({
           style={{ display: 'none' }}
           ref={fileInputRef}
           onChange={handleFileChange}
+          multiple
         />
         <span className="small" id="file_status">{fileStatus}</span>
       </div>
+
+      {datasets && datasets.length > 0 && (
+        <div className="file-list">
+          <ul>
+            {datasets.map(dataset => (
+              <li key={dataset.id}>
+                <span>{dataset.fileName}</span>
+                <div className="file-actions">
+                  <DatasetColorPicker 
+                    dataset={dataset} 
+                    onUpdateDatasetColor={onUpdateDatasetColor} 
+                  />
+                  <button onClick={() => onRemoveDataset(dataset.id)} className="remove-btn">
+                    &times;
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="row controls">
         <div className="row">

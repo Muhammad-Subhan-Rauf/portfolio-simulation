@@ -2,7 +2,7 @@
 
 import React, { useRef, useEffect, useMemo } from 'react';
 
-const theme = { primary: '#FF0043', secondary: '#5D71FC', gridColor: 'rgba(255, 0, 67, 0.2)', textColor: '#FF0043' };
+const theme = { primary: '#FF0043', gridColor: 'rgba(255, 0, 67, 0.2)', textColor: '#FF0043' };
 
 // Helper function for smooth line drawing (Cardinal Spline)
 function drawSmoothLine(ctx, points) {
@@ -24,23 +24,24 @@ function drawSmoothLine(ctx, points) {
   ctx.stroke();
 }
 
-function Chart({ data, currentIndex }) {
+function Chart({ datasets, currentIndex }) {
   const canvasRef = useRef(null);
 
-  // The Y-axis bounds are still calculated based on the ENTIRE dataset.
-  // This is crucial to prevent the vertical scale from jumping around during playback.
   const chartBounds = useMemo(() => {
-    if (!data?.pnl) return { yMin: -1, yMax: 1 };
-    const pnlValues = data.pnl;
-    const minY = Math.min(...pnlValues, 0);
-    const maxY = Math.max(...pnlValues, 0);
+    if (!datasets || datasets.length === 0) return { yMin: -1, yMax: 1 };
+    
+    const allPnlValues = datasets.flatMap(ds => ds.data.pnl || []);
+    if (allPnlValues.length === 0) return { yMin: -1, yMax: 1 };
+
+    const minY = Math.min(...allPnlValues, 0);
+    const maxY = Math.max(...allPnlValues, 0);
     const paddingY = (maxY - minY) * 0.2 || 1;
     return { yMin: minY - paddingY, yMax: maxY + paddingY };
-  }, [data]);
+  }, [datasets]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !data) return;
+    if (!canvas || !datasets) return;
     
     const ctx = canvas.getContext('2d');
     const { yMin, yMax } = chartBounds;
@@ -49,25 +50,6 @@ function Chart({ data, currentIndex }) {
     const w = canvas.width - m.left - m.right;
     const h = canvas.height - m.top - m.bottom;
 
-    // ====================================================================
-    // START: MODIFIED COORDINATE LOGIC
-    // ====================================================================
-    
-    // The `getPoint` function now scales the X-coordinate based on the `currentIndex`.
-    // `index / currentIndex` ensures that when i === currentIndex, x === w (the far right).
-    const getPoint = (index, currentVisibleMaxIndex) => {
-      const pnlValue = data.pnl[index];
-      // Prevent division by zero when only the first point is visible.
-      const x = (currentVisibleMaxIndex > 0) ? (index / currentVisibleMaxIndex) * w : 0;
-      const y = h - ((pnlValue - yMin) / (yMax - yMin)) * h;
-      return { x, y };
-    };
-    
-    // ====================================================================
-    // END: MODIFIED COORDINATE LOGIC
-    // ====================================================================
-
-    // Clear and draw static elements (axes, grid, labels) - No changes here
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
     ctx.translate(m.left, m.top);
@@ -103,31 +85,42 @@ function Chart({ data, currentIndex }) {
         ctx.fillText(yVal.toFixed(2), -65, y + 4);
     }
     
-    // Generate the points for the visible portion of the data
-    const pointsToDraw = [];
-    for (let i = 0; i <= currentIndex; i++) {
-        pointsToDraw.push(getPoint(i, currentIndex));
-    }
-    
-    // Draw the smooth blue line
-    ctx.strokeStyle = theme.secondary;
-    ctx.lineWidth = 2;
-    if (pointsToDraw.length > 1) {
-      drawSmoothLine(ctx, pointsToDraw);
-    }
-    
-    // Draw the red dot at the current position (which is always the last point)
-    if (pointsToDraw.length > 0) {
-      const lastPoint = pointsToDraw[pointsToDraw.length - 1];
-      ctx.fillStyle = theme.primary;
-      ctx.beginPath();
-      ctx.arc(lastPoint.x, lastPoint.y, 4, 0, 2 * Math.PI);
-      ctx.fill();
-    }
+    datasets.forEach(dataset => {
+      const { data, color } = dataset;
+      if (!data?.pnl) return;
+
+      const getPoint = (index, currentVisibleMaxIndex) => {
+        const pnlValue = data.pnl[index];
+        const x = (currentVisibleMaxIndex > 0) ? (index / currentVisibleMaxIndex) * w : 0;
+        const y = h - ((pnlValue - yMin) / (yMax - yMin)) * h;
+        return { x, y };
+      };
+
+      const pointsToDraw = [];
+      const maxAvailableIndex = Math.min(currentIndex, data.pnl.length - 1);
+      
+      for (let i = 0; i <= maxAvailableIndex; i++) {
+          pointsToDraw.push(getPoint(i, currentIndex));
+      }
+      
+      ctx.strokeStyle = color || '#5D71FC';
+      ctx.lineWidth = 2;
+      if (pointsToDraw.length > 1) {
+        drawSmoothLine(ctx, pointsToDraw);
+      }
+      
+      if (pointsToDraw.length > 0) {
+        const lastPoint = pointsToDraw[pointsToDraw.length - 1];
+        ctx.fillStyle = theme.primary;
+        ctx.beginPath();
+        ctx.arc(lastPoint.x, lastPoint.y, 4, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+    });
 
     ctx.restore();
 
-  }, [data, currentIndex, chartBounds]);
+  }, [datasets, currentIndex, chartBounds]);
 
   return <canvas ref={canvasRef} id="canvas" width="960" height="540"></canvas>;
 }

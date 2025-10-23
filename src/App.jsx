@@ -1,3 +1,5 @@
+// Original relative path: App.jsx
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import './App.css';
 import { TEXTS } from './constants';
@@ -10,16 +12,25 @@ import Metrics from './components/Metrics';
 import PositionsTable from './components/PositionsTable';
 
 function App() {
-  const { data, operatorName, fileStatus, isLoading, loadData } = usePortfolioData();
+  const { datasets, fileStatus, isLoading, loadData, removeDataset, updateDatasetColor } = usePortfolioData();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(250);
 
-  const maxIndex = data ? data.equity.length - 1 : 0;
+  // maxIndex is the max length across all datasets
+  const maxIndex = useMemo(() => {
+    if (!datasets || datasets.length === 0) return 0;
+    return Math.max(...datasets.map(ds => ds.data.equity.length - 1));
+  }, [datasets]);
+  
+  // For Metrics and Tables, we'll display data for the FIRST dataset.
+  const primaryDataset = datasets?.[0];
+  const operatorName = primaryDataset?.operatorName || 'N/A';
+  const data = primaryDataset?.data;
 
   // Memoize the data for the current step to avoid recalculating on every render
   const currentStepData = useMemo(() => {
-    if (!data) return null;
+    if (!data || currentIndex >= data.dates.length) return null; // Check bounds for primary data
     return {
       date: data.dates[currentIndex],
       cash: data.cash[currentIndex],
@@ -59,10 +70,10 @@ function App() {
     setCurrentIndex(newIndex);
   };
   
-  const handleFileSelect = useCallback((file) => {
+  const handleFileSelect = useCallback((files) => { // files is now a FileList
     setIsPlaying(false);
     setCurrentIndex(0);
-    loadData(file);
+    loadData(files);
   }, [loadData]);
 
 
@@ -80,10 +91,13 @@ function App() {
         onSpeedChange={setSpeed}
         onFileSelect={handleFileSelect}
         fileStatus={fileStatus}
-        isDisabled={isLoading || !data}
+        isDisabled={isLoading || datasets.length === 0}
+        datasets={datasets}
+        onRemoveDataset={removeDataset}
+        onUpdateDatasetColor={updateDatasetColor}
       />
 
-      <Chart data={data} currentIndex={currentIndex} />
+      <Chart datasets={datasets} currentIndex={currentIndex} />
 
       <Metrics currentData={currentStepData} />
 
