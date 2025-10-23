@@ -1,7 +1,7 @@
 // Original relative path: hooks/usePortfolioData.js
 
 import { useState, useEffect, useCallback } from 'react';
-import { TEXTS } from '../constants';
+import { TEXTS, PRESET_COLORS } from '../constants';
 
 const getOperatorName = (fileName) => {
   const suffix = '_consolidated_json.json';
@@ -42,7 +42,7 @@ export const usePortfolioData = () => {
     setIsLoading(true);
     setFileStatus(TEXTS.file_status_loading);
 
-    const processFile = async (file) => {
+    const processFile = async (file, color) => {
         try {
             const fileName = file.name;
             const text = await file.text();
@@ -54,7 +54,7 @@ export const usePortfolioData = () => {
                     data: processed,
                     operatorName: getOperatorName(fileName),
                     fileName,
-                    color: '#FF0043' // Default to primary color instead of random
+                    color: color,
                 };
             }
         } catch (error) {
@@ -64,11 +64,29 @@ export const usePortfolioData = () => {
     };
 
     if (files && files.length > 0) {
-      const newDatasetsPromises = Array.from(files).map(processFile);
+      // 1. Get colors currently in use.
+      const usedColors = new Set(datasets.map(ds => ds.color));
+
+      // 2. Find which preset colors are still available.
+      const availableColors = PRESET_COLORS.filter(c => !usedColors.has(c));
+
+      const newDatasetsPromises = Array.from(files).map((file, index) => {
+        let newColor;
+        // 3. Assign a unique color if one is available.
+        if (index < availableColors.length) {
+          newColor = availableColors[index];
+        } else {
+          // 4. Otherwise, assign a random color from the full palette.
+          newColor = PRESET_COLORS[Math.floor(Math.random() * PRESET_COLORS.length)];
+        }
+        return processFile(file, newColor);
+      });
+      
       const newDatasets = (await Promise.all(newDatasetsPromises)).filter(Boolean);
       setDatasets(prev => [...prev, ...newDatasets]);
       setFileStatus(`${newDatasets.length} file(s) loaded.`);
-    } else if (datasets.length === 0) {
+
+    } else if (datasets.length === 0) { // Handle initial default load
       try {
         const operatorName = 'Ⲗ';
         const fileName = `${operatorName}_consolidated_json.json`;
@@ -82,7 +100,7 @@ export const usePortfolioData = () => {
             data: processed,
             operatorName: getOperatorName(fileName),
             fileName,
-            color: '#FF0043' // Default to primary color
+            color: PRESET_COLORS[0] // Always start with the first color
           }]);
           setFileStatus(TEXTS.file_status_default);
         }
@@ -94,7 +112,7 @@ export const usePortfolioData = () => {
     }
     
     setIsLoading(false);
-  }, [datasets.length]);
+  }, [datasets]); // Dependency must be `datasets` to get the latest `usedColors`
 
   const removeDataset = useCallback((id) => {
     setDatasets(prev => prev.filter(ds => ds.id !== id));

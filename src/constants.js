@@ -1,7 +1,5 @@
 // Original relative path: constants.js
 
-// Original relative path: constants.js
-
 export const TEXTS = {
   title: "Portfolio Simulation — Chart + Speed",
   header: "Portfolio Value simulation with operator {operatorName}",
@@ -38,3 +36,15 @@ export const TEXTS = {
   tip: "Tip: use the <b>Step</b> slider to navigate manually. The <b>Speed</b> adjusts the interval (ms) between two frames when playback is active.",
   locale: "en-US",
 };
+
+// New color palette from the image, plus theme colors
+export const PRESET_COLORS = [
+  '#FF0043', // Theme Primary
+  '#5D71FC', // Theme Secondary
+  '#CF8863', // Orange
+  '#CFC363', // Yellow
+  '#6D9C72', // Green
+  '#4E95EE', // Blue
+  '#B57DFF', // Lavender
+  '#C36CE6', // Purple
+];

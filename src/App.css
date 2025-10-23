@@ -491,10 +491,10 @@ th:first-child, td:first-child {
 }
 
 .arrow.down {
-  transform: rotate(45deg);
+  transform: rotate(135deg);
 }
 .arrow.up {
-  transform: rotate(-135deg);
+  transform: rotate(225deg);
 }
 
 .selector-list {

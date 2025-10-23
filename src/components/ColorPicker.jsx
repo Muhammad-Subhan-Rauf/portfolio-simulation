@@ -1,6 +1,7 @@
 // Original relative path: components/ColorPicker.jsx
 
 import React, { useState, useEffect, useRef } from 'react';
+import { PRESET_COLORS } from '../constants'; // Import from constants
 
 // Debounce hook
 function useDebounce(value, delay) {
@@ -11,18 +12,6 @@ function useDebounce(value, delay) {
   }, [value, delay]);
   return debouncedValue;
 }
-
-// New color palette from the image, plus theme colors
-const PRESET_COLORS = [
-  '#FF0043', // Theme Primary
-  '#5D71FC', // Theme Secondary
-  '#CF8863', // Orange
-  '#CFC363', // Yellow
-  '#6D9C72', // Green
-  '#4E95EE', // Blue
-  '#B57DFF', // Lavender
-  '#C36CE6', // Purple
-];
 
 function ColorPicker({ dataset, onUpdateDatasetColor, onClose }) {
   const [color, setColor] = useState(dataset.color);
