@@ -1,5 +1,7 @@
 // Original relative path: App.jsx
 
+// Original relative path: App.jsx
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import './App.css';
 import { TEXTS } from './constants';
@@ -18,12 +20,20 @@ function App() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(250);
   const [selectedDatasetId, setSelectedDatasetId] = useState(null);
+  const [zoomRange, setZoomRange] = useState({ start: 0, end: null });
 
   // maxIndex is the max length across all datasets
   const maxIndex = useMemo(() => {
     if (!datasets || datasets.length === 0) return 0;
     return Math.max(...datasets.map(ds => ds.data.equity.length - 1));
   }, [datasets]);
+
+  // Effect to initialize/reset zoomRange.end when maxIndex changes
+  useEffect(() => {
+    // Set the end of the zoom range once the maximum index is known
+    setZoomRange(prev => ({ ...prev, end: maxIndex }));
+  }, [maxIndex]);
+
 
   // Set initial selection or update if selection is removed
   useEffect(() => {
@@ -105,6 +115,25 @@ function App() {
     });
   }, [maxIndex]);
 
+  // Handlers for zoom functionality
+  const handleZoomChange = useCallback((newRange) => {
+    const start = Math.max(0, newRange.start);
+    const end = Math.min(maxIndex, newRange.end);
+    // Prevent zooming into a range smaller than 2 data points
+    if (end - start > 1) {
+      setZoomRange({ start, end });
+    }
+  }, [maxIndex]);
+
+  const handleZoomReset = useCallback(() => {
+    setZoomRange({ start: 0, end: maxIndex });
+  }, [maxIndex]);
+
+  const isZoomed = useMemo(() => {
+    if (zoomRange.end === null) return false;
+    return zoomRange.start !== 0 || zoomRange.end !== maxIndex;
+  }, [zoomRange, maxIndex]);
+
   return (
     <>
       <Header operatorName={operatorName} />
@@ -116,7 +145,7 @@ function App() {
         isPlaying={isPlaying}
         onPlayPause={handlePlayPause}
         onFrameChange={handleFrameChange}
-        onStepChange={handleStepChange} // Pass the handler function
+        onStepChange={handleStepChange}
         onSpeedChange={setSpeed}
         onFileSelect={handleFileSelect}
         fileStatus={fileStatus}
@@ -124,9 +153,17 @@ function App() {
         datasets={datasets}
         onRemoveDataset={handleRemoveDataset}
         onUpdateDatasetColor={updateDatasetColor}
+        isZoomed={isZoomed}
+        onZoomReset={handleZoomReset}
       />
 
-      <Chart datasets={datasets} currentIndex={currentIndex} />
+      <Chart
+        datasets={datasets}
+        currentIndex={currentIndex}
+        zoomRange={zoomRange}
+        onZoomChange={handleZoomChange}
+        onZoomReset={handleZoomReset}
+      />
 
       {datasets.length > 1 && (
         <DatasetSelector

@@ -1,5 +1,7 @@
 // Original relative path: components/Chart.jsx
 
+// Original relative path: components/Chart.jsx
+
 import React, { useRef, useEffect, useMemo, useState } from 'react';
 import './Chart.css'; // Import a new CSS file for the chart component
 
@@ -25,31 +27,35 @@ function drawSmoothLine(ctx, points) {
   ctx.stroke();
 }
 
-function Chart({ datasets, currentIndex }) {
+function Chart({ datasets, currentIndex, zoomRange, onZoomChange, onZoomReset }) {
   const canvasRef = useRef(null);
   const [tooltip, setTooltip] = useState(null);
-  const badPurchasePointsRef = useRef([]); // To store coordinates of bad purchases
+  const [selection, setSelection] = useState(null); // For zoom selection rectangle
+  const badPurchasePointsRef = useRef([]);
 
   const chartBounds = useMemo(() => {
-    if (!datasets || datasets.length === 0) return { yMin: -1, yMax: 1 };
-    
-    const allPnlValues = datasets.flatMap(ds => ds.data.pnl || []);
+    if (!datasets || datasets.length === 0 || !zoomRange || zoomRange.end === null) {
+      return { yMin: -1, yMax: 1 };
+    }
+    const { start, end } = zoomRange;
+    const allPnlValues = datasets.flatMap(ds => 
+      ds.data.pnl ? ds.data.pnl.slice(start, end + 1) : []
+    );
     if (allPnlValues.length === 0) return { yMin: -1, yMax: 1 };
 
     const minY = Math.min(...allPnlValues, 0);
     const maxY = Math.max(...allPnlValues, 0);
     const paddingY = (maxY - minY) * 0.2 || 1;
     return { yMin: minY - paddingY, yMax: maxY + paddingY };
-  }, [datasets]);
+  }, [datasets, zoomRange]);
 
   // Drawing effect
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !datasets) return;
+    if (!canvas || !datasets || !zoomRange || zoomRange.end === null) return;
     
     const ctx = canvas.getContext('2d');
     const { yMin, yMax } = chartBounds;
-
     const m = { left: 70, right: 20, top: 20, bottom: 40 };
     const w = canvas.width - m.left - m.right;
     const h = canvas.height - m.top - m.bottom;
@@ -60,9 +66,7 @@ function Chart({ datasets, currentIndex }) {
     ctx.font = "12px 'Fira Code', monospace";
     ctx.strokeStyle = theme.primary;
     ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(0, h);
-    ctx.lineTo(w, h);
+    ctx.moveTo(0, 0); ctx.lineTo(0, h); ctx.lineTo(w, h);
     ctx.stroke();
     
     const y0 = h - ((0 - yMin) / (yMax - yMin)) * h;
@@ -71,8 +75,7 @@ function Chart({ datasets, currentIndex }) {
       ctx.strokeStyle = theme.primary;
       ctx.setLineDash([2, 2]);
       ctx.beginPath();
-      ctx.moveTo(0, y0);
-      ctx.lineTo(w, y0);
+      ctx.moveTo(0, y0); ctx.lineTo(w, y0);
       ctx.stroke();
       ctx.restore();
     }
@@ -81,39 +84,47 @@ function Chart({ datasets, currentIndex }) {
         const yVal = yMin + (i / 5) * (yMax - yMin);
         const y = h - (i / 5) * h;
         ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(w, y);
+        ctx.moveTo(0, y); ctx.lineTo(w, y);
         ctx.strokeStyle = theme.gridColor;
         ctx.stroke();
         ctx.fillStyle = theme.textColor;
         ctx.fillText(yVal.toFixed(2), -65, y + 4);
     }
     
-    badPurchasePointsRef.current = []; // Clear points for recalculation
+    if (selection && selection.isDragging) {
+      const rectX = Math.min(selection.startX, selection.endX);
+      const rectWidth = Math.abs(selection.endX - selection.startX);
+      ctx.fillStyle = 'rgba(255, 0, 67, 0.2)';
+      ctx.fillRect(rectX, 0, rectWidth, h);
+    }
+
+    badPurchasePointsRef.current = [];
 
     datasets.forEach(dataset => {
       const { data, color } = dataset;
       if (!data?.pnl) return;
 
-      const getPoint = (index, currentVisibleMaxIndex) => {
-        const pnlValue = data.pnl[index];
-        const x = (currentVisibleMaxIndex > 0) ? (index / currentVisibleMaxIndex) * w : 0;
+      const getPoint = (dataIndex) => {
+        const pnlValue = data.pnl[dataIndex];
+        const zoomWidth = zoomRange.end - zoomRange.start;
+        const x = zoomWidth > 0 ? ((dataIndex - zoomRange.start) / zoomWidth) * w : 0;
         const y = h - ((pnlValue - yMin) / (yMax - yMin)) * h;
         return { x, y };
       };
 
       const pointsToDraw = [];
-      const maxAvailableIndex = Math.min(currentIndex, data.pnl.length - 1);
+      const startDrawIndex = zoomRange.start;
+      const endDrawIndex = Math.min(currentIndex, zoomRange.end);
       
-      for (let i = 0; i <= maxAvailableIndex; i++) {
-          pointsToDraw.push(getPoint(i, currentIndex));
+      for (let i = startDrawIndex; i <= endDrawIndex; i++) {
+        if (data.pnl[i] !== undefined) {
+          pointsToDraw.push(getPoint(i));
+        }
       }
       
       ctx.strokeStyle = color || '#5D71FC';
       ctx.lineWidth = 2;
-      if (pointsToDraw.length > 1) {
-        drawSmoothLine(ctx, pointsToDraw);
-      }
+      if (pointsToDraw.length > 1) drawSmoothLine(ctx, pointsToDraw);
       
       if (pointsToDraw.length > 0) {
         const lastPoint = pointsToDraw[pointsToDraw.length - 1];
@@ -124,47 +135,63 @@ function Chart({ datasets, currentIndex }) {
       }
 
       if (data.choice_evaluation) {
-        for (let i = 0; i <= maxAvailableIndex; i++) {
-          if (data.choice_evaluation[i] && data.choice_evaluation[i].correct_choice === 0 && data.choice_evaluation[i].selected_symbol !== data.choice_evaluation[i].best_symbol && data.choice_evaluation[i].best_symbol != "Null") {
-            const point = getPoint(i, currentIndex);
+        for (let i = startDrawIndex; i <= endDrawIndex; i++) {
+          if (data.choice_evaluation[i] && data.choice_evaluation[i].correct_choice === 0 && data.choice_evaluation[i].selected_symbol !== data.choice_evaluation[i].best_symbol && data.choice_evaluation[i].best_symbol != "NULL") {
+            const point = getPoint(i);
             const dotRadius = 5;
             ctx.fillStyle = '#C36CE6';
             ctx.beginPath();
             ctx.arc(point.x, point.y, dotRadius, 0, 2 * Math.PI);
             ctx.fill();
-            
-            // Store the point's data for hit detection
             badPurchasePointsRef.current.push({
-              x: point.x + m.left,
-              y: point.y + m.top,
-              radius: dotRadius,
-              data: data.choice_evaluation[i],
+              x: point.x + m.left, y: point.y + m.top, radius: dotRadius, data: data.choice_evaluation[i],
             });
           }
         }
       }
     });
-
     ctx.restore();
-  }, [datasets, currentIndex, chartBounds]);
+  }, [datasets, currentIndex, chartBounds, zoomRange, selection]);
 
   // Effect for mouse listeners
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || !zoomRange || zoomRange.end === null) return;
+
+    const m = { left: 70, right: 20, top: 20, bottom: 40 };
+    const w = canvas.width - m.left - m.right;
+    
+    const pixelToDataIndex = (pixelX) => {
+      const relativeX = pixelX - m.left;
+      const zoomWidth = zoomRange.end - zoomRange.start;
+      const indexInZoom = (relativeX / w) * zoomWidth;
+      return Math.floor(zoomRange.start + indexInZoom);
+    };
+
+    const handleMouseDown = (event) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      if (x > m.left && x < m.left + w) {
+        setSelection({ startX: x - m.left, endX: x - m.left, isDragging: true });
+      }
+    };
 
     const handleMouseMove = (event) => {
       const rect = canvas.getBoundingClientRect();
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
-      let foundPoint = null;
 
+      if (selection && selection.isDragging) {
+        const currentX = Math.max(0, Math.min(x - m.left, w));
+        setSelection(prev => ({ ...prev, endX: currentX }));
+      }
+      
+      let foundPoint = null;
       for (const point of badPurchasePointsRef.current) {
         const distance = Math.sqrt(Math.pow(x - point.x, 2) + Math.pow(y - point.y, 2));
-        if (distance < point.radius + 3) { // +3px buffer for easier hovering
+        if (distance < point.radius + 3) {
           foundPoint = {
-            x: x,
-            y: y,
+            x: x, y: y,
             content: `Wrong Choice: ${point.data.selected_symbol}. Best Choice was: ${point.data.best_symbol}`,
           };
           break;
@@ -172,19 +199,41 @@ function Chart({ datasets, currentIndex }) {
       }
       setTooltip(foundPoint);
     };
+
+    const handleMouseUp = () => {
+      if (selection && selection.isDragging) {
+        const startPixel = Math.min(selection.startX, selection.endX);
+        const endPixel = Math.max(selection.startX, selection.endX);
+        if (endPixel - startPixel > 5) {
+          const startIndex = pixelToDataIndex(startPixel + m.left);
+          const endIndex = pixelToDataIndex(endPixel + m.left);
+          onZoomChange({ start: startIndex, end: endIndex });
+        }
+        setSelection(null);
+      }
+    };
     
     const handleMouseLeave = () => {
+      if (selection && selection.isDragging) setSelection(null);
       setTooltip(null);
     };
 
+    const handleDoubleClick = () => onZoomReset();
+
+    canvas.addEventListener('mousedown', handleMouseDown);
     canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('mouseup', handleMouseUp);
     canvas.addEventListener('mouseleave', handleMouseLeave);
+    canvas.addEventListener('dblclick', handleDoubleClick);
 
     return () => {
+      canvas.removeEventListener('mousedown', handleMouseDown);
       canvas.removeEventListener('mousemove', handleMouseMove);
+      canvas.removeEventListener('mouseup', handleMouseUp);
       canvas.removeEventListener('mouseleave', handleMouseLeave);
+      canvas.removeEventListener('dblclick', handleDoubleClick);
     };
-  }, []); // Empty dependency array means this runs once on mount
+  }, [zoomRange, onZoomChange, onZoomReset, selection]);
 
   return (
     <div className="chart-container">
@@ -192,10 +241,7 @@ function Chart({ datasets, currentIndex }) {
       {tooltip && (
         <div 
           className="chart-tooltip" 
-          style={{ 
-            left: `${tooltip.x}px`, 
-            top: `${tooltip.y}px` 
-          }}
+          style={{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }}
         >
           {tooltip.content}
         </div>

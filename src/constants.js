@@ -1,5 +1,7 @@
 // Original relative path: constants.js
 
+// Original relative path: constants.js
+
 export const TEXTS = {
   title: "Portfolio Simulation — Chart + Speed",
   header: "Portfolio Value simulation with operator {operatorName}",
@@ -8,6 +10,7 @@ export const TEXTS = {
   controls_pause: "❚❚ PAUSE",
   controls_speed: "Speed",
   controls_speed_unit: "(ms between steps)",
+  controls_reset_zoom: "Reset Zoom", // Added this line
   file_loader_label: "Load Data File (.json)",
   file_status_loading: "Loading data...",
   file_status_default: "Default data loaded.",

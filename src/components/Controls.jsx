@@ -1,5 +1,7 @@
 // Original relative path: components/Controls.jsx
 
+// Original relative path: components/Controls.jsx
+
 import React, { useRef, useState } from 'react';
 import { TEXTS } from '../constants';
 import ColorPicker from './ColorPicker';
@@ -10,7 +12,7 @@ function Controls({
   speed,
   isPlaying,
   onFrameChange,
-  onStepChange, // Receive the handler
+  onStepChange,
   onPlayPause,
   onSpeedChange,
   onFileSelect,
@@ -19,6 +21,8 @@ function Controls({
   datasets,
   onRemoveDataset,
   onUpdateDatasetColor,
+  isZoomed,
+  onZoomReset,
 }) {
   const fileInputRef = useRef(null);
   const [editingColorId, setEditingColorId] = useState(null);
@@ -88,7 +92,6 @@ function Controls({
         <div className="control-group">
           <label htmlFor="frame" className="neon-text">{TEXTS.controls_hour}</label>
           <div className="step-buttons">
-            {/* Use the onStepChange handler here */}
             <button onClick={() => onStepChange(-1)} disabled={isDisabled || currentIndex <= 0}>◀</button>
             <button onClick={() => onStepChange(1)} disabled={isDisabled || currentIndex >= maxIndex}>▶</button>
           </div>
@@ -105,10 +108,13 @@ function Controls({
           <output id="frameVal" className="neon-text">{currentIndex}</output>
         </div>
 
-        {/* Play/Pause Section */}
+        {/* Play/Pause/Zoom Section */}
         <div className="control-group">
           <button onClick={onPlayPause} disabled={isDisabled} className="play-pause-btn neon-text">
             {isPlaying ? TEXTS.controls_pause : TEXTS.controls_play}
+          </button>
+          <button onClick={onZoomReset} disabled={isDisabled || !isZoomed} className="neon-text">
+            {TEXTS.controls_reset_zoom}
           </button>
         </div>
         
