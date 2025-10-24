@@ -165,15 +165,17 @@ function App() {
         onZoomReset={handleZoomReset}
       />
 
+      <div className='metrics-container'>
+        <Metrics currentData={currentStepData} />
       {datasets.length > 1 && (
         <DatasetSelector
-          datasets={datasets}
-          selectedId={selectedDatasetId}
-          onSelect={setSelectedDatasetId}
+        datasets={datasets}
+        selectedId={selectedDatasetId}
+        onSelect={setSelectedDatasetId}
         />
       )}
-
-      <Metrics currentData={currentStepData} />
+      
+      </div>
       <PositionsTable type="open" positions={currentStepData?.open_positions} />
       <PositionsTable type="closed" positions={currentStepData?.closed_positions} />
       
