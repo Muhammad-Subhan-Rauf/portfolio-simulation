@@ -1,5 +1,7 @@
 // Original relative path: components/Chart.jsx
 
+// Original relative path: components/Chart.jsx
+
 import React, { useRef, useEffect, useMemo, useState } from "react";
 import "./Chart.css"; // Import a new CSS file for the chart component
 
@@ -40,11 +42,38 @@ function Chart({
     const [tooltip, setTooltip] = useState(null);
     const [selection, setSelection] = useState(null);
     const badPurchasePointsRef = useRef([]);
+    const [highlightedSegment, setHighlightedSegment] = useState(null);
     const [isFilterVisible, setIsFilterVisible] = useState(true);
     const [filters, setFilters] = useState({
         falsePositive: true,
         falseNegative: true,
     });
+
+    // Memoize the complete list of all suboptimal points across all datasets.
+    // This is only recalculated if the datasets themselves change.
+    const allSuboptimalPoints = useMemo(() => {
+        const points = [];
+        datasets.forEach(dataset => {
+            if (dataset.data?.choice_evaluation) {
+                dataset.data.choice_evaluation.forEach((evaluation, index) => {
+                    if (evaluation) {
+                        const isFalsePositive = evaluation.selected_symbol && (evaluation.best_symbol === "NULL" || (evaluation.best_symbol !== evaluation.selected_symbol && evaluation.selected_symbol !== "NULL"));
+                        const isFalseNegative = evaluation.selected_symbol === "NULL" && evaluation.best_symbol && evaluation.best_symbol !== "NULL";
+                        const isSuboptimal = (isFalseNegative || isFalsePositive);
+                        if (isSuboptimal) {
+                            points.push({
+                                buyIndex: index,
+                                symbol: evaluation.selected_symbol,
+                                datasetId: dataset.id,
+                            });
+                        }
+                    }
+                });
+            }
+        });
+        return points;
+    }, [datasets]);
+
 
     const handleFilterChange = (filterName) => {
         setFilters(prev => ({ ...prev, [filterName]: !prev[filterName] }));
@@ -57,10 +86,7 @@ function Chart({
   const container = document.querySelector(".container-chart-and-controls");
 
   if (rightBar && container) {
-    // Set the height of the right bar equal to the canvas height
     rightBar.style.height = `${canvas.height}px`;
-
-    // Optional: also make the container match
     container.style.alignItems = "stretch";
   }
 }, []);
@@ -91,6 +117,13 @@ function Chart({
         const m = { left: 70, right: 20, top: 20, bottom: 40 };
         const w = canvas.width - m.left - m.right;
         const h = canvas.height - m.top - m.bottom;
+
+        const getPoint = (pnlValue, dataIndex) => {
+            const zoomWidth = zoomRange.end - zoomRange.start;
+            const x = zoomWidth > 0 ? ((dataIndex - zoomRange.start) / zoomWidth) * w : 0;
+            const y = h - ((pnlValue - yMin) / (yMax - yMin)) * h;
+            return { x, y };
+        };
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.save();
@@ -136,21 +169,13 @@ function Chart({
             const { data, color } = dataset;
             if (!data?.pnl) return;
 
-            const getPoint = (dataIndex) => {
-                const pnlValue = data.pnl[dataIndex];
-                const zoomWidth = zoomRange.end - zoomRange.start;
-                const x = zoomWidth > 0 ? ((dataIndex - zoomRange.start) / zoomWidth) * w : 0;
-                const y = h - ((pnlValue - yMin) / (yMax - yMin)) * h;
-                return { x, y };
-            };
-
             const pointsToDraw = [];
             const startDrawIndex = zoomRange.start;
             const endDrawIndex = Math.min(currentIndex, zoomRange.end);
 
             for (let i = startDrawIndex; i <= endDrawIndex; i++) {
                 if (data.pnl[i] !== undefined) {
-                    pointsToDraw.push(getPoint(i));
+                    pointsToDraw.push(getPoint(data.pnl[i], i));
                 }
             }
 
@@ -167,14 +192,14 @@ function Chart({
             }
 
             if (data.choice_evaluation) {
-                for (let i = startDrawIndex; i <= endDrawIndex; i++) {
+                 for (let i = startDrawIndex; i <= endDrawIndex; i++) {
                     const evaluation = data.choice_evaluation[i];
-                    if (evaluation) {
-                        const isFalsePositive = evaluation.selected_symbol && evaluation.best_symbol === "NULL";
+                    if (evaluation && evaluation.correct_choice !== 1) {
+                        const isFalsePositive = evaluation.selected_symbol && (evaluation.best_symbol === "NULL" || (evaluation.best_symbol !== evaluation.selected_symbol && evaluation.selected_symbol !== "NULL"));
                         const isFalseNegative = evaluation.selected_symbol === "NULL" && evaluation.best_symbol && evaluation.best_symbol !== "NULL";
-
                         if ((isFalsePositive && filters.falsePositive) || (isFalseNegative && filters.falseNegative)) {
-                            const point = getPoint(i);
+                            const point = getPoint(data.pnl[i], i);
+
                             const markerSize = 5;
                             ctx.fillStyle = "#C36CE6";
                             let tooltipContent = "";
@@ -205,16 +230,48 @@ function Chart({
                 }
             }
         });
+
+        if (highlightedSegment) {
+            const dataset = datasets.find(ds => ds.id === highlightedSegment.datasetId);
+            if (dataset) {
+                const highlightPoints = [];
+                // This loop correctly draws from the start (buy) to the end (sell).
+                for (let i = highlightedSegment.start; i <= highlightedSegment.end; i++) {
+                    if (dataset.data.pnl[i] !== undefined) {
+                        highlightPoints.push(getPoint(dataset.data.pnl[i], i));
+                    }
+                }
+                if (highlightPoints.length > 1) {
+                    ctx.save();
+                    ctx.strokeStyle = '#00FF00'; // Bright green for highlight
+                    ctx.lineWidth = 3;
+                    drawSmoothLine(ctx, highlightPoints);
+                    ctx.restore();
+                }
+            }
+        }
+
         ctx.restore();
-    }, [datasets, currentIndex, chartBounds, zoomRange, selection, filters]);
+    }, [datasets, currentIndex, chartBounds, zoomRange, selection, filters, highlightedSegment, allSuboptimalPoints]);
 
     // Effect for mouse listeners
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas || !zoomRange || zoomRange.end === null) return;
 
+        // FIX: Destructure chartBounds here to make yMin and yMax available in this scope.
+        const { yMin, yMax } = chartBounds;
         const m = { left: 70, right: 20, top: 20, bottom: 40 };
         const w = canvas.width - m.left - m.right;
+        const h = canvas.height - m.top - m.bottom;
+        
+        const getPoint = (pnlValue, dataIndex) => {
+            const zoomWidth = zoomRange.end - zoomRange.start;
+            const x = zoomWidth > 0 ? ((dataIndex - zoomRange.start) / zoomWidth) * w : 0;
+            const y = h - ((pnlValue - yMin) / (yMax - yMin)) * h;
+            return { x, y };
+        };
+
 
         const pixelToDataIndex = (pixelX) => {
             const relativeX = pixelX - m.left;
@@ -271,14 +328,87 @@ function Chart({
             if (selection && selection.isDragging) setSelection(null);
             setTooltip(null);
         };
+        
+        const handleClick = (event) => {
+            if (selection && selection.isDragging) return;
 
-        const handleDoubleClick = () => onZoomReset();
+            const rect = canvas.getBoundingClientRect();
+            const clickX = event.clientX - rect.left;
+            const clickY = event.clientY - rect.top;
+
+            let clickedPoint = null;
+            let minDistance = Infinity;
+
+            // Iterate over the complete list of suboptimal points
+            for (const point of allSuboptimalPoints) {
+                const dataset = datasets.find(ds => ds.id === point.datasetId);
+                if (dataset?.data?.pnl) {
+                     // Check if the point is within the current visible range
+                    if (point.buyIndex >= zoomRange.start && point.buyIndex <= zoomRange.end) {
+                        const pnlValue = dataset.data.pnl[point.buyIndex];
+                        const { x, y } = getPoint(pnlValue, point.buyIndex);
+                        const canvasX = x + m.left;
+                        const canvasY = y + m.top;
+
+                        const distance = Math.sqrt(Math.pow(clickX - canvasX, 2) + Math.pow(clickY - canvasY, 2));
+
+                        if (distance < 10 && distance < minDistance) {
+                            minDistance = distance;
+                            clickedPoint = point;
+                        }
+                    }
+                }
+            }
+
+
+            if (clickedPoint) {
+                const dataset = datasets.find(ds => ds.id === clickedPoint.datasetId);
+                if (!dataset) return;
+
+                const closedPositions = dataset.data.closed_positions;
+                let sellIndex = -1;
+
+                // Search the entire dataset forward in time for the sell event.
+                for (let i = clickedPoint.buyIndex + 1; i < closedPositions.length; i++) {
+                    const positionsAtStep = closedPositions[i];
+                    if (positionsAtStep?.length > 0) {
+                    
+                        const soldPosition = positionsAtStep.find(p => {
+                            console.log("PPP: ",p.buy_index, clickedPoint.buyIndex)
+                            return Number(p.buy_index) == Number(clickedPoint.buyIndex)});
+
+                        console.log("SOLD POSITION",soldPosition)
+                        if (soldPosition) {
+                            sellIndex = i;
+                            break;
+                        }
+                    }
+                }
+                if (sellIndex !== -1) {
+                    setHighlightedSegment({
+                        start: clickedPoint.buyIndex,
+                        end: sellIndex,
+                        datasetId: clickedPoint.datasetId
+                    });
+                } else {
+                     setHighlightedSegment(null);
+                }
+            } else {
+                setHighlightedSegment(null);
+            }
+        };
+
+        const handleDoubleClick = () => {
+            // onZoomReset();
+            setHighlightedSegment(null);
+        };
 
         canvas.addEventListener("mousedown", handleMouseDown);
         canvas.addEventListener("mousemove", handleMouseMove);
         canvas.addEventListener("mouseup", handleMouseUp);
         canvas.addEventListener("mouseleave", handleMouseLeave);
         canvas.addEventListener("dblclick", handleDoubleClick);
+        canvas.addEventListener("click", handleClick);
 
         return () => {
             canvas.removeEventListener("mousedown", handleMouseDown);
@@ -286,8 +416,9 @@ function Chart({
             canvas.removeEventListener("mouseup", handleMouseUp);
             canvas.removeEventListener("mouseleave", handleMouseLeave);
             canvas.removeEventListener("dblclick", handleDoubleClick);
+            canvas.removeEventListener("click", handleClick);
         };
-    }, [zoomRange, onZoomChange, onZoomReset, selection]);
+    }, [zoomRange, onZoomChange, onZoomReset, selection, datasets, chartBounds, allSuboptimalPoints]);
 
     return (
         <div className="container-chart-and-controls">
@@ -314,7 +445,7 @@ function Chart({
                                     <span className="filter-shape circle"></span>
                                     <span className={`checkbox ${filters.falsePositive ? 'checked' : ''}`}></span>
                                     <span className="filter-label">false positifs</span>
-                                </li>
+                                 </li>
                                 <li className="filter-item" onClick={() => handleFilterChange('falseNegative')}>
                                     <span className="filter-shape triangle"></span>
                                     <span className={`checkbox ${filters.falseNegative ? 'checked' : ''}`}></span>
