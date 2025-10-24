@@ -1,6 +1,7 @@
 // Original relative path: components/Chart.jsx
 
-import React, { useRef, useEffect, useMemo } from 'react';
+import React, { useRef, useEffect, useMemo, useState } from 'react';
+import './Chart.css'; // Import a new CSS file for the chart component
 
 const theme = { primary: '#FF0043', gridColor: 'rgba(255, 0, 67, 0.2)', textColor: '#FF0043' };
 
@@ -26,6 +27,8 @@ function drawSmoothLine(ctx, points) {
 
 function Chart({ datasets, currentIndex }) {
   const canvasRef = useRef(null);
+  const [tooltip, setTooltip] = useState(null);
+  const badPurchasePointsRef = useRef([]); // To store coordinates of bad purchases
 
   const chartBounds = useMemo(() => {
     if (!datasets || datasets.length === 0) return { yMin: -1, yMax: 1 };
@@ -39,6 +42,7 @@ function Chart({ datasets, currentIndex }) {
     return { yMin: minY - paddingY, yMax: maxY + paddingY };
   }, [datasets]);
 
+  // Drawing effect
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !datasets) return;
@@ -85,6 +89,8 @@ function Chart({ datasets, currentIndex }) {
         ctx.fillText(yVal.toFixed(2), -65, y + 4);
     }
     
+    badPurchasePointsRef.current = []; // Clear points for recalculation
+
     datasets.forEach(dataset => {
       const { data, color } = dataset;
       if (!data?.pnl) return;
@@ -116,13 +122,86 @@ function Chart({ datasets, currentIndex }) {
         ctx.arc(lastPoint.x, lastPoint.y, 4, 0, 2 * Math.PI);
         ctx.fill();
       }
+
+      if (data.choice_evaluation) {
+        for (let i = 0; i <= maxAvailableIndex; i++) {
+          if (data.choice_evaluation[i] && data.choice_evaluation[i].correct_choice === 0 && data.choice_evaluation[i].selected_symbol !== data.choice_evaluation[i].best_symbol && data.choice_evaluation[i].best_symbol != "Null") {
+            const point = getPoint(i, currentIndex);
+            const dotRadius = 5;
+            ctx.fillStyle = '#C36CE6';
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, dotRadius, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Store the point's data for hit detection
+            badPurchasePointsRef.current.push({
+              x: point.x + m.left,
+              y: point.y + m.top,
+              radius: dotRadius,
+              data: data.choice_evaluation[i],
+            });
+          }
+        }
+      }
     });
 
     ctx.restore();
-
   }, [datasets, currentIndex, chartBounds]);
 
-  return <canvas ref={canvasRef} id="canvas" width="960" height="540"></canvas>;
+  // Effect for mouse listeners
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const handleMouseMove = (event) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      let foundPoint = null;
+
+      for (const point of badPurchasePointsRef.current) {
+        const distance = Math.sqrt(Math.pow(x - point.x, 2) + Math.pow(y - point.y, 2));
+        if (distance < point.radius + 3) { // +3px buffer for easier hovering
+          foundPoint = {
+            x: x,
+            y: y,
+            content: `Wrong Choice: ${point.data.selected_symbol}. Best Choice was: ${point.data.best_symbol}`,
+          };
+          break;
+        }
+      }
+      setTooltip(foundPoint);
+    };
+    
+    const handleMouseLeave = () => {
+      setTooltip(null);
+    };
+
+    canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('mouseleave', handleMouseLeave);
+
+    return () => {
+      canvas.removeEventListener('mousemove', handleMouseMove);
+      canvas.removeEventListener('mouseleave', handleMouseLeave);
+    };
+  }, []); // Empty dependency array means this runs once on mount
+
+  return (
+    <div className="chart-container">
+      <canvas ref={canvasRef} id="canvas" width="960" height="540"></canvas>
+      {tooltip && (
+        <div 
+          className="chart-tooltip" 
+          style={{ 
+            left: `${tooltip.x}px`, 
+            top: `${tooltip.y}px` 
+          }}
+        >
+          {tooltip.content}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default Chart;

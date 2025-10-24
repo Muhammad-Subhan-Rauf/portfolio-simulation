@@ -1,5 +1,7 @@
 // Original relative path: hooks/usePortfolioData.js
 
+// Original relative path: hooks/usePortfolioData.js
+
 import { useState, useEffect, useCallback } from 'react';
 import { TEXTS, PRESET_COLORS } from '../constants';
 
@@ -30,6 +32,7 @@ const processData = (rawData) => {
     open_positions: rawData.open_position,
     closed_positions: rawData.close_position,
     dates: rawData.date_list,
+    choice_evaluation: rawData.choice_evaluation, // Add this line
   };
 };
 

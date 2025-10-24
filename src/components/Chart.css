@@ -1,0 +1,22 @@
+/* Original relative path: components/Chart.css */
+
+.chart-container {
+  position: relative;
+  display: inline-block; /* Or any other appropriate display type */
+}
+
+.chart-tooltip {
+  position: absolute;
+  background-color: rgba(22, 22, 22, 0.85);
+  color: #E6E6E6;
+  border: 1px solid #FF0043;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-family: 'Fira Code', monospace;
+  font-size: 12px;
+  pointer-events: none; /* This is crucial so the tooltip doesn't block mouse events */
+  transform: translate(-50%, -120%); /* Position tooltip above and centered on the cursor */
+  white-space: nowrap;
+  z-index: 10;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
