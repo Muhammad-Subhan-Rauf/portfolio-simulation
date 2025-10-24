@@ -1,8 +1,17 @@
+
 /* Original relative path: components/Chart.css */
+
+.container-chart-and-controls {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 20px;
+  align-items: stretch;
+}
 
 .chart-container {
   position: relative;
-  display: inline-block; /* Or any other appropriate display type */
+  flex-shrink: 0;
 }
 
 .chart-tooltip {
@@ -14,9 +23,120 @@
   border-radius: 4px;
   font-family: 'Fira Code', monospace;
   font-size: 12px;
-  pointer-events: none; /* This is crucial so the tooltip doesn't block mouse events */
-  transform: translate(-50%, -120%); /* Position tooltip above and centered on the cursor */
+  pointer-events: none;
+  transform: translate(-50%, -120%);
   white-space: nowrap;
   z-index: 10;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.right-bar {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  justify-content: space-between;
+  flex-grow: 1;
+  min-width: 250px;
+  font-family: 'Fira Code', monospace;
+  color: white;
+}
+
+.filter-controls {
+  border-top: 1px solid white;
+  border-bottom: 1px solid white;
+  padding: 15px;
+  position: relative;
+  min-height: 40px; /* Ensure borders are visible when collapsed */
+}
+
+.toggle-button {
+  position: absolute;
+  bottom: -11px;
+  left: -25px;
+  background: none !important;
+  border:none;
+  box-shadow: none !important;
+  color: #FFFFFF;
+  cursor: pointer;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.toggle-button:hover {
+  box-shadow: none !important;
+}
+.filter-content {
+  padding-top: 10px;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap; /* ✅ allows wrapping */
+  gap: 50px;
+}
+
+
+.filter-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 20px 0;
+}
+
+.filter-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+  cursor: pointer;
+}
+
+.filter-shape {
+  margin-right: 15px;
+}
+
+.filter-shape.circle {
+  width: 12px;
+  height: 12px;
+  background-color: #5D71FC;
+  border-radius: 50%;
+}
+
+.filter-shape.triangle {
+  width: 0;
+  height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-bottom: 12px solid #5D71FC;
+}
+
+.checkbox {
+  width: 14px;
+  height: 14px;
+  border: 1px solid #FF0043;
+  margin-right: 15px;
+}
+
+/* This class will be added in the JSX to show the checked state */
+.checkbox.checked {
+  background-color: #FF0043;
+}
+
+.filter-label {
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.legend-details p {
+  margin: 4px 0; /* default for all paragraphs */
+  font-size: 14px;
+  text-shadow: none !important;
+}
+
+/* first paragraph only */
+.legend-details p:first-child {
+  margin-top: 0;    /* no top margin */
+  margin-bottom: 4px; /* keep bottom margin */
 }
