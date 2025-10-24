@@ -45,8 +45,8 @@ function Chart({
     const [highlightedSegment, setHighlightedSegment] = useState(null);
     const [isFilterVisible, setIsFilterVisible] = useState(true);
     const [filters, setFilters] = useState({
-        falsePositive: true,
-        falseNegative: true,
+        falsePositive: false,
+        falseNegative: false,
     });
 
     // Memoize the complete list of all suboptimal points across all datasets.
