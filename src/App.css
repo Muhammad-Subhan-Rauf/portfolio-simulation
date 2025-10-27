@@ -630,5 +630,5 @@ th:first-child, td:first-child {
 
 .no-bords tr td:nth-child(2) {
   color: var(--secondary-color) !important;
-  text-shadow: none;
+  text-shadow: 0 0 2px var(--secondary-color), 0 0 5px var(--secondary-color);
 }
