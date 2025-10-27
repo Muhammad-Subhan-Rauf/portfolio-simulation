@@ -13,6 +13,7 @@ import Chart from './components/Chart';
 import Metrics from './components/Metrics';
 import PositionsTable from './components/PositionsTable';
 import DatasetSelector from './components/DatasetSelector';
+import Footer from './components/Footer';
 
 function App() {
   const { datasets, fileStatus, isLoading, loadData, removeDataset, updateDatasetColor } = usePortfolioData();
@@ -180,6 +181,8 @@ function App() {
       <PositionsTable type="closed" positions={currentStepData?.closed_positions} />
       
       <p className="small" dangerouslySetInnerHTML={{ __html: TEXTS.tip }}></p>
+
+      <Footer />
     </>
   );
 }

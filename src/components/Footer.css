@@ -1,0 +1,101 @@
+.footer-container {
+  text-align: center;
+  font-size: 0.75rem; /* text-xs */
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem; /* gap-1 */
+  align-items: center;
+  text-shadow:none;
+  color: #FFFFFF !important;
+  margin-top:75px;
+}
+
+.footer-warning {
+  text-align: center;
+  font-size: 10px;
+  letter-spacing: 0.05em; /* tracking-wide */
+  margin-bottom: 0.5rem;
+  margin-top: 0.5rem;
+  line-height: 1.25;
+  color: #FFFFFF !important;
+
+}
+
+.footer-spacer {
+  height: 0.5rem; /* h-2 */
+}
+
+.footer-links-section {
+  text-align: center;
+  font-size: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  align-items: center;
+  margin-bottom: 32px;
+  color: #FFFFFF !important;
+}
+
+.footer-links-wrapper {
+  display: flex;
+  gap: 32px;
+  align-items: flex-end;
+}
+
+@media (min-width: 768px) {
+  .footer-links-wrapper {
+    gap: 2.5rem; /* md:gap-10 */
+  }
+}
+
+.footer-link {
+  cursor: pointer;
+  font-family: "Poppins", sans-serif;
+  font-weight: 400;
+  font-size: 10px;
+  color: #a0a0a0;
+  transition: color 0.2s ease;
+  text-decoration: none;
+}
+
+.footer-link:hover {
+  color: var(--primary-color, #007bff); /* default primary color if not defined */
+}
+
+.footer-brand {
+  font-size: 10px;
+  line-height: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #FFFFFF !important;
+
+}
+
+.footer-powered {
+  font-family: "Poppins", sans-serif;
+  color: #a0a0a0;
+  font-style: italic;
+  letter-spacing: 0.1em;
+  line-height: 15px;
+  margin: 0;
+}
+
+.footer-brand-name {
+  font-family: "Copperplate", serif;
+  margin-top: 3px;
+  font-size: 10px;
+  line-height: 11px;
+  letter-spacing: 0.15px;
+  color: #FFFFFF !important;
+;
+}
+
+.footer-brand-subtext {
+  font-family: "Copperplate", serif;
+  margin-top: 3px;
+  font-size: 8px;
+  line-height: 11px;
+  letter-spacing: -0.15px;
+  color: #a0a0a0;
+}

@@ -50,4 +50,5 @@ export const PRESET_COLORS = [
   '#4E95EE', // Blue
   '#B57DFF', // Lavender
   '#C36CE6', // Purple
+  '#8DBAFD'
 ];

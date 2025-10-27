@@ -174,7 +174,7 @@ function Chart({ datasets, currentIndex, zoomRange, onZoomChange }) {
                 }
             }
 
-            ctx.strokeStyle = color || "#5D71FC";
+            ctx.strokeStyle = color || "#8DBAFD";
             ctx.lineWidth = 2;
             if (pointsToDraw.length > 1) drawSmoothLine(ctx, pointsToDraw);
 
@@ -195,7 +195,7 @@ function Chart({ datasets, currentIndex, zoomRange, onZoomChange }) {
                         if ((isFalsePositive && filters.falsePositive) || (isFalseNegative && filters.falseNegative)) {
                             const point = getPoint(data.pnl[i], i);
                             const markerSize = 5;
-                            ctx.fillStyle = "#C36CE6";
+                            ctx.fillStyle = "#8DBAFD";
                             let tooltipContent = "";
                             if (isFalsePositive) {
                                 tooltipContent = `False Positive: Bought ${evaluation.selected_symbol}, but should not have.`;
@@ -231,7 +231,7 @@ function Chart({ datasets, currentIndex, zoomRange, onZoomChange }) {
                 }
                 if (highlightPoints.length > 1) {
                     ctx.save();
-                    ctx.strokeStyle = '#00FF00';
+                    ctx.strokeStyle = '#FFFFFF';
                     ctx.lineWidth = 3;
                     drawSmoothLine(ctx, highlightPoints);
                     ctx.restore();
