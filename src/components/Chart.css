@@ -1,17 +1,17 @@
-
 /* Original relative path: components/Chart.css */
 
 .container-chart-and-controls {
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
   gap: 20px;
   align-items: stretch;
+  height: 640px; /* Set a fixed height for the container */
 }
 
 .chart-container {
   position: relative;
-  flex-shrink: 0;
+  flex: 1 1 60%; /* Allow grow/shrink, with a basis of 60% */
+  min-width: 0; /* Important for allowing shrinking below content size */
 }
 
 .chart-tooltip {
@@ -32,14 +32,15 @@
 
 .right-bar {
   display: flex;
-  height: 100%;
   flex-direction: column;
   padding-bottom: 24px;
   justify-content: space-between;
-  flex-grow: 1;
+  flex: 1 1 40%; /* Allow grow/shrink, with a basis of 40% */
   min-width: 250px;
   font-family: 'Fira Code', monospace;
   color: white;
+  padding-left: 20px;
+  box-sizing: border-box;
 }
 
 .filter-controls {

@@ -1,9 +1,5 @@
 // Original relative path: components/Chart.jsx
 
-// Original relative path: components/Chart.jsx
-
-// Original relative path: components/Chart.jsx
-
 import React, { useRef, useEffect, useMemo, useState } from "react";
 import "./Chart.css"; // Import a new CSS file for the chart component
 
@@ -52,6 +48,18 @@ function Chart({
     });
     const [debouncedHoverPoint, setDebouncedHoverPoint] = useState(null);
     const hoverTimerRef = useRef(null);
+    const [windowSize, setWindowSize] = useState({
+        width: window.innerWidth,
+        height: window.innerHeight,
+    });
+
+    useEffect(() => {
+        const handleResize = () => {
+            setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     // Memoize the complete list of all suboptimal points across all datasets.
     // This is only recalculated if the datasets themselves change.
@@ -82,18 +90,6 @@ function Chart({
     const handleFilterChange = (filterName) => {
         setFilters(prev => ({ ...prev, [filterName]: !prev[filterName] }));
     };
-    useEffect(() => {
-  const canvas = canvasRef.current;
-  if (!canvas) return;
-
-  const rightBar = document.querySelector(".right-bar");
-  const container = document.querySelector(".container-chart-and-controls");
-  console.log("CANVAS HEIGHT:   ",canvas.height)
-  if (rightBar && container) {
-    rightBar.style.height = `${canvas.height}px`;
-    container.style.alignItems = "stretch";
-  }
-}, []);
 
     const chartBounds = useMemo(() => {
         if (!datasets || datasets.length === 0 || !zoomRange || zoomRange.end === null) {
@@ -115,6 +111,10 @@ function Chart({
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas || !datasets || !zoomRange || zoomRange.end === null) return;
+
+        const container = canvas.parentElement;
+        canvas.width = container.clientWidth;
+        canvas.height = container.clientHeight;
 
         const ctx = canvas.getContext("2d");
         const { yMin, yMax } = chartBounds;
@@ -269,7 +269,7 @@ function Chart({
         }
 
         ctx.restore();
-    }, [datasets, currentIndex, chartBounds, zoomRange, selection, filters, highlightedSegment, allSuboptimalPoints, debouncedHoverPoint]);
+    }, [datasets, currentIndex, chartBounds, zoomRange, selection, filters, highlightedSegment, allSuboptimalPoints, debouncedHoverPoint, windowSize]);
 
     // Effect for mouse listeners
     useEffect(() => {
@@ -475,12 +475,12 @@ function Chart({
                 clearTimeout(hoverTimerRef.current);
             }
         };
-    }, [zoomRange, onZoomChange, onZoomReset, selection, datasets, chartBounds, allSuboptimalPoints]);
+    }, [zoomRange, onZoomChange, onZoomReset, selection, datasets, chartBounds, allSuboptimalPoints, windowSize]);
 
     return (
         <div className="container-chart-and-controls">
             <div className="chart-container">
-                <canvas ref={canvasRef} id="canvas" width="1100" height="640"></canvas>
+                <canvas ref={canvasRef} id="canvas"></canvas>
                 {tooltip && (
                     <div className="chart-tooltip" style={{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }}>
                         {tooltip.content}
@@ -488,7 +488,7 @@ function Chart({
                 )}
             </div>
             <div className="right-bar">
-              <div>
+                <div>
                   subhan
                 </div>
                 <div className="filter-controls">
