@@ -1,7 +1,8 @@
 // Original relative path: components/Chart.jsx
 
 import React, { useRef, useEffect, useMemo, useState } from "react";
-import "./Chart.css"; // Import a new CSS file for the chart component
+import "./Chart.css";
+import DataDisplayBox from './DataDisplayBox'; // Replaced HoverDataBox
 
 const theme = {
     primary: "#FF0043",
@@ -9,7 +10,6 @@ const theme = {
     textColor: "#FF0043",
 };
 
-// Helper function for smooth line drawing (Cardinal Spline)
 function drawSmoothLine(ctx, points) {
     if (points.length < 2) return;
     ctx.beginPath();
@@ -29,25 +29,22 @@ function drawSmoothLine(ctx, points) {
     ctx.stroke();
 }
 
-function Chart({
-    datasets,
-    currentIndex,
-    zoomRange,
-    onZoomChange,
-    onZoomReset,
-}) {
+function Chart({ datasets, currentIndex, zoomRange, onZoomChange }) {
     const canvasRef = useRef(null);
     const [tooltip, setTooltip] = useState(null);
     const [selection, setSelection] = useState(null);
     const badPurchasePointsRef = useRef([]);
     const [highlightedSegment, setHighlightedSegment] = useState(null);
     const [isFilterVisible, setIsFilterVisible] = useState(true);
-    const [filters, setFilters] = useState({
-        falsePositive: false,
-        falseNegative: false,
-    });
+    const [filters, setFilters] = useState({ falsePositive: false, falseNegative: false });
     const [debouncedHoverPoint, setDebouncedHoverPoint] = useState(null);
     const hoverTimerRef = useRef(null);
+    
+    // State for hover and pinned data
+    const [hoverData, setHoverData] = useState(null);
+    const [pinnedData, setPinnedData] = useState(null);
+    const [pinnedDataIndex, setPinnedDataIndex] = useState(0);
+
     const [windowSize, setWindowSize] = useState({
         width: window.innerWidth,
         height: window.innerHeight,
@@ -61,8 +58,6 @@ function Chart({
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Memoize the complete list of all suboptimal points across all datasets.
-    // This is only recalculated if the datasets themselves change.
     const allSuboptimalPoints = useMemo(() => {
         const points = [];
         datasets.forEach(dataset => {
@@ -71,8 +66,7 @@ function Chart({
                     if (evaluation) {
                         const isFalsePositive = evaluation.selected_symbol && (evaluation.best_symbol === "NULL" || (evaluation.best_symbol !== evaluation.selected_symbol && evaluation.selected_symbol !== "NULL"));
                         const isFalseNegative = evaluation.selected_symbol === "NULL" && evaluation.best_symbol && evaluation.best_symbol !== "NULL";
-                        const isSuboptimal = (isFalseNegative || isFalsePositive);
-                        if (isSuboptimal) {
+                        if (isFalseNegative || isFalsePositive) {
                             points.push({
                                 buyIndex: index,
                                 symbol: evaluation.selected_symbol,
@@ -85,7 +79,6 @@ function Chart({
         });
         return points;
     }, [datasets]);
-
 
     const handleFilterChange = (filterName) => {
         setFilters(prev => ({ ...prev, [filterName]: !prev[filterName] }));
@@ -107,7 +100,6 @@ function Chart({
         return { yMin: minY - paddingY, yMax: maxY + paddingY };
     }, [datasets, zoomRange]);
 
-    // Drawing effect
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas || !datasets || !zoomRange || zoomRange.end === null) return;
@@ -203,11 +195,9 @@ function Chart({
                         const isFalseNegative = evaluation.selected_symbol === "NULL" && evaluation.best_symbol && evaluation.best_symbol !== "NULL";
                         if ((isFalsePositive && filters.falsePositive) || (isFalseNegative && filters.falseNegative)) {
                             const point = getPoint(data.pnl[i], i);
-
                             const markerSize = 5;
                             ctx.fillStyle = "#C36CE6";
                             let tooltipContent = "";
-
                             if (isFalsePositive) {
                                 tooltipContent = `False Positive: Bought ${evaluation.selected_symbol}, but should not have.`;
                                 ctx.beginPath();
@@ -222,12 +212,8 @@ function Chart({
                                 ctx.closePath();
                                 ctx.fill();
                             }
-
                             badPurchasePointsRef.current.push({
-                                x: point.x + m.left,
-                                y: point.y + m.top,
-                                radius: markerSize,
-                                content: tooltipContent,
+                                x: point.x + m.left, y: point.y + m.top, radius: markerSize, content: tooltipContent,
                             });
                         }
                     }
@@ -239,7 +225,6 @@ function Chart({
             const dataset = datasets.find(ds => ds.id === highlightedSegment.datasetId);
             if (dataset) {
                 const highlightPoints = [];
-                // This loop correctly draws from the start (buy) to the end (sell).
                 for (let i = highlightedSegment.start; i <= highlightedSegment.end; i++) {
                     if (dataset.data.pnl[i] !== undefined) {
                         highlightPoints.push(getPoint(dataset.data.pnl[i], i));
@@ -247,7 +232,7 @@ function Chart({
                 }
                 if (highlightPoints.length > 1) {
                     ctx.save();
-                    ctx.strokeStyle = '#00FF00'; // Bright green for highlight
+                    ctx.strokeStyle = '#00FF00';
                     ctx.lineWidth = 3;
                     drawSmoothLine(ctx, highlightPoints);
                     ctx.restore();
@@ -267,16 +252,13 @@ function Chart({
             ctx.stroke();
             ctx.restore();
         }
-
         ctx.restore();
     }, [datasets, currentIndex, chartBounds, zoomRange, selection, filters, highlightedSegment, allSuboptimalPoints, debouncedHoverPoint, windowSize]);
 
-    // Effect for mouse listeners
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas || !zoomRange || zoomRange.end === null) return;
 
-        // FIX: Destructure chartBounds here to make yMin and yMax available in this scope.
         const { yMin, yMax } = chartBounds;
         const m = { left: 70, right: 20, top: 20, bottom: 40 };
         const w = canvas.width - m.left - m.right;
@@ -288,7 +270,6 @@ function Chart({
             const y = h - ((pnlValue - yMin) / (yMax - yMin)) * h;
             return { x, y };
         };
-
 
         const pixelToDataIndex = (pixelX) => {
             const relativeX = pixelX - m.left;
@@ -306,14 +287,13 @@ function Chart({
         };
 
         const handleMouseMove = (event) => {
+            if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+            setDebouncedHoverPoint(null);
+            if (!pinnedData) setHoverData(null);
+
             const rect = canvas.getBoundingClientRect();
             const x = event.clientX - rect.left;
             const y = event.clientY - rect.top;
-
-            if (hoverTimerRef.current) {
-                clearTimeout(hoverTimerRef.current);
-            }
-            setDebouncedHoverPoint(null);
 
             if (selection && selection.isDragging) {
                 const currentX = Math.max(0, Math.min(x - m.left, w));
@@ -324,6 +304,7 @@ function Chart({
                 const dataIndex = pixelToDataIndex(x);
                 let closestPoint = null;
                 let minDistance = Infinity;
+                let dataForHover = null;
 
                 datasets.forEach(dataset => {
                     if (dataset.data.pnl && dataIndex >= 0 && dataIndex < dataset.data.pnl.length) {
@@ -336,6 +317,25 @@ function Chart({
                             if (distance < 20 && distance < minDistance) {
                                 minDistance = distance;
                                 closestPoint = point;
+
+                                if (!pinnedData) {
+                                    // MODIFICATION: Only look at closed positions for hover
+                                    const closedPositions = dataset.data.closed_positions[dataIndex] || [];
+                                    const positionToShow = closedPositions[0]; // Get the first closed position
+                                    const choiceEval = dataset.data.choice_evaluation[dataIndex] || {};
+
+                                    if (positionToShow) {
+                                        dataForHover = {
+                                            crypto: positionToShow.symbol,
+                                            timeOpen: dataset.data.dates[positionToShow.buy_index],
+                                            timeClosed: Object.prototype.hasOwnProperty.call(positionToShow, 'sell_value') ? dataset.data.dates[dataIndex] : 'N/A',
+                                            priceOpen: positionToShow.initial_price_close,
+                                            priceClose: positionToShow.current_price_close,
+                                            pnl: positionToShow.profit_and_loss,
+                                            bestChoice: choiceEval.best_symbol || 'N/A'
+                                        };
+                                    }
+                                }
                             }
                         }
                     }
@@ -344,15 +344,14 @@ function Chart({
                 if (closestPoint) {
                     hoverTimerRef.current = setTimeout(() => {
                         setDebouncedHoverPoint(closestPoint);
+                        if (!pinnedData) setHoverData(dataForHover);
                     }, 0);
                 }
             }
 
             let foundPoint = null;
             for (const point of badPurchasePointsRef.current) {
-                const distance = Math.sqrt(
-                    Math.pow(x - point.x, 2) + Math.pow(y - point.y, 2)
-                );
+                const distance = Math.sqrt(Math.pow(x - point.x, 2) + Math.pow(y - point.y, 2));
                 if (distance < point.radius + 3) {
                     foundPoint = { x: x, y: y, content: point.content };
                     break;
@@ -375,85 +374,69 @@ function Chart({
         };
 
         const handleMouseLeave = () => {
-            if (selection && selection.isDragging) setSelection(null);
+            if (selection?.isDragging) setSelection(null);
             setTooltip(null);
-            if (hoverTimerRef.current) {
-                clearTimeout(hoverTimerRef.current);
-            }
+            if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
             setDebouncedHoverPoint(null);
+            if (!pinnedData) setHoverData(null);
         };
         
         const handleClick = (event) => {
-            if (selection && selection.isDragging) return;
+            if (selection?.isDragging) return;
 
             const rect = canvas.getBoundingClientRect();
             const clickX = event.clientX - rect.left;
             const clickY = event.clientY - rect.top;
+            const dataIndex = pixelToDataIndex(clickX);
 
-            let clickedPoint = null;
+            let closestDataset = null;
             let minDistance = Infinity;
 
-            // Iterate over the complete list of suboptimal points
-            for (const point of allSuboptimalPoints) {
-                const dataset = datasets.find(ds => ds.id === point.datasetId);
-                if (dataset?.data?.pnl) {
-                     // Check if the point is within the current visible range
-                    if (point.buyIndex >= zoomRange.start && point.buyIndex <= zoomRange.end) {
-                        const pnlValue = dataset.data.pnl[point.buyIndex];
-                        const { x, y } = getPoint(pnlValue, point.buyIndex);
-                        const canvasX = x + m.left;
-                        const canvasY = y + m.top;
-
-                        const distance = Math.sqrt(Math.pow(clickX - canvasX, 2) + Math.pow(clickY - canvasY, 2));
-
-                        if (distance < 10 && distance < minDistance) {
+            datasets.forEach(dataset => {
+                if (dataset.data.pnl && dataIndex >= 0 && dataIndex < dataset.data.pnl.length) {
+                    const pnlValue = dataset.data.pnl[dataIndex];
+                    if (pnlValue !== undefined) {
+                        const point = getPoint(pnlValue, dataIndex);
+                        const canvasY = point.y + m.top;
+                        const distance = Math.abs(clickY - canvasY);
+                        if (distance < 20 && distance < minDistance) { // 20px tolerance on Y axis
                             minDistance = distance;
-                            clickedPoint = point;
+                            closestDataset = dataset;
                         }
                     }
                 }
-            }
+            });
 
+            if (closestDataset) {
+                const { data } = closestDataset;
+                // MODIFICATION: Only get closed positions for pinning
+                const positionsAtStep = data.closed_positions[dataIndex] || [];
 
-            if (clickedPoint) {
-                const dataset = datasets.find(ds => ds.id === clickedPoint.datasetId);
-                if (!dataset) return;
-
-                const closedPositions = dataset.data.closed_positions;
-                let sellIndex = -1;
-
-                // Search the entire dataset forward in time for the sell event.
-                for (let i = clickedPoint.buyIndex + 1; i < closedPositions.length; i++) {
-                    const positionsAtStep = closedPositions[i];
-                    if (positionsAtStep?.length > 0) {
-                    
-                        const soldPosition = positionsAtStep.find(p => {
-                            console.log("PPP: ",p.buy_index, clickedPoint.buyIndex)
-                            return Number(p.buy_index) == Number(clickedPoint.buyIndex)});
-
-                        console.log("SOLD POSITION",soldPosition)
-                        if (soldPosition) {
-                            sellIndex = i;
-                            break;
-                        }
-                    }
-                }
-                if (sellIndex !== -1) {
-                    setHighlightedSegment({
-                        start: clickedPoint.buyIndex,
-                        end: sellIndex,
-                        datasetId: clickedPoint.datasetId
-                    });
+                if (positionsAtStep.length > 0) {
+                    const choiceEval = data.choice_evaluation[dataIndex] || {};
+                    const formattedPositions = positionsAtStep.map(pos => ({
+                        crypto: pos.symbol,
+                        timeOpen: data.dates[pos.buy_index],
+                        timeClosed: Object.prototype.hasOwnProperty.call(pos, 'sell_value') ? data.dates[dataIndex] : 'N/A',
+                        priceOpen: pos.initial_price_close,
+                        priceClose: pos.current_price_close,
+                        pnl: pos.profit_and_loss,
+                        bestChoice: choiceEval.best_symbol || 'N/A'
+                    }));
+                    setPinnedData(formattedPositions);
+                    setPinnedDataIndex(0);
+                    setHoverData(null);
+                    setHighlightedSegment(null);
                 } else {
-                     setHighlightedSegment(null);
+                    setPinnedData(null);
                 }
             } else {
-                setHighlightedSegment(null);
+                 setPinnedData(null);
             }
         };
 
         const handleDoubleClick = () => {
-            // onZoomReset();
+            setPinnedData(null);
             setHighlightedSegment(null);
         };
 
@@ -471,11 +454,19 @@ function Chart({
             canvas.removeEventListener("mouseleave", handleMouseLeave);
             canvas.removeEventListener("dblclick", handleDoubleClick);
             canvas.removeEventListener("click", handleClick);
-            if (hoverTimerRef.current) {
-                clearTimeout(hoverTimerRef.current);
-            }
+            if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
         };
-    }, [zoomRange, onZoomChange, onZoomReset, selection, datasets, chartBounds, allSuboptimalPoints, windowSize]);
+    }, [zoomRange, onZoomChange, selection, datasets, chartBounds, allSuboptimalPoints, windowSize, pinnedData]);
+
+    const handlePinnedIndexChange = (direction) => {
+        setPinnedDataIndex(prev => {
+            const newIndex = prev + direction;
+            if (newIndex >= 0 && newIndex < (pinnedData?.length || 0)) {
+                return newIndex;
+            }
+            return prev;
+        });
+    };
 
     return (
         <div className="container-chart-and-controls">
@@ -488,10 +479,8 @@ function Chart({
                 )}
             </div>
             <div className="right-bar">
-                <div>
-                  subhan
-                </div>
-                <div className="filter-controls">
+                
+                <div className={`filter-controls ${isFilterVisible ? 'table-visible' : 'table-hidden'}`}>
                     <button onClick={() => setIsFilterVisible(!isFilterVisible)} className="toggle-button">
                         {isFilterVisible ? '-' : '+'}
                     </button>
@@ -521,7 +510,12 @@ function Chart({
                         </div>
                     )}
                 </div>
-                
+                <DataDisplayBox 
+                    hoverData={hoverData}
+                    pinnedData={pinnedData}
+                    pinnedDataIndex={pinnedDataIndex}
+                    onPinnedIndexChange={handlePinnedIndexChange}
+                />
             </div>
         </div>
     );

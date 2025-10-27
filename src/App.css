@@ -623,3 +623,12 @@ th:first-child, td:first-child {
   text-transform: none;
   font-size: 12px;
 }
+
+.no-bords{
+  border: none;
+}
+
+.no-bords tr td:nth-child(2) {
+  color: var(--secondary-color) !important;
+  text-shadow: none;
+}

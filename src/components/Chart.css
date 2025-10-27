@@ -32,7 +32,7 @@
 
 .right-bar {
   display: flex;
-  flex-direction: column;
+  flex-direction: column-reverse;
   padding-bottom: 24px;
   justify-content: space-between;
   flex: 1 1 40%; /* Allow grow/shrink, with a basis of 40% */
@@ -48,9 +48,13 @@
   border-bottom: 1px solid white;
   padding: 15px;
   position: relative;
-  min-height: 40px; /* Ensure borders are visible when collapsed */
+  /* min-height: 40px; Ensure borders are visible when collapsed */
 }
-
+.filter-controls.table-hidden{
+  padding: 0;
+  height: 0;
+  min-height: none;
+}
 .toggle-button {
   position: absolute;
   bottom: -11px;
