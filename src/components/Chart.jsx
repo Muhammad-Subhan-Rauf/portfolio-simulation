@@ -2,7 +2,7 @@
 
 import React, { useRef, useEffect, useMemo, useState } from "react";
 import "./Chart.css";
-import DataDisplayBox from './DataDisplayBox'; // Replaced HoverDataBox
+import DataDisplayBox from './DataDisplayBox';
 
 const theme = {
     primary: "#FF0043",
@@ -40,7 +40,6 @@ function Chart({ datasets, currentIndex, zoomRange, onZoomChange }) {
     const [debouncedHoverPoint, setDebouncedHoverPoint] = useState(null);
     const hoverTimerRef = useRef(null);
     
-    // State for hover and pinned data
     const [hoverData, setHoverData] = useState(null);
     const [pinnedData, setPinnedData] = useState(null);
     const [pinnedDataIndex, setPinnedDataIndex] = useState(0);
@@ -319,9 +318,8 @@ function Chart({ datasets, currentIndex, zoomRange, onZoomChange }) {
                                 closestPoint = point;
 
                                 if (!pinnedData) {
-                                    // MODIFICATION: Only look at closed positions for hover
                                     const closedPositions = dataset.data.closed_positions[dataIndex] || [];
-                                    const positionToShow = closedPositions[0]; // Get the first closed position
+                                    const positionToShow = closedPositions[0];
                                     const choiceEval = dataset.data.choice_evaluation[dataIndex] || {};
 
                                     if (positionToShow) {
@@ -387,10 +385,77 @@ function Chart({ datasets, currentIndex, zoomRange, onZoomChange }) {
             const rect = canvas.getBoundingClientRect();
             const clickX = event.clientX - rect.left;
             const clickY = event.clientY - rect.top;
-            const dataIndex = pixelToDataIndex(clickX);
 
-            let closestDataset = null;
+            let clickedSuboptimalPoint = null;
             let minDistance = Infinity;
+
+            for (const point of allSuboptimalPoints) {
+                const dataset = datasets.find(ds => ds.id === point.datasetId);
+                if (dataset?.data?.pnl && point.buyIndex >= zoomRange.start && point.buyIndex <= zoomRange.end) {
+                    const pnlValue = dataset.data.pnl[point.buyIndex];
+                    const { x, y } = getPoint(pnlValue, point.buyIndex);
+                    const canvasX = x + m.left;
+                    const canvasY = y + m.top;
+                    const distance = Math.sqrt(Math.pow(clickX - canvasX, 2) + Math.pow(clickY - canvasY, 2));
+
+                    if (distance < 10 && distance < minDistance) {
+                        minDistance = distance;
+                        clickedSuboptimalPoint = point;
+                    }
+                }
+            }
+
+            if (clickedSuboptimalPoint) {
+                const dataset = datasets.find(ds => ds.id === clickedSuboptimalPoint.datasetId);
+                if (!dataset) return;
+
+                const { data } = dataset;
+                const closedPositions = data.closed_positions;
+                let sellIndex = -1;
+                let soldPosition = null;
+
+                for (let i = clickedSuboptimalPoint.buyIndex + 1; i < closedPositions.length; i++) {
+                    const positionsAtStep = closedPositions[i] || [];
+                    const foundPosition = positionsAtStep.find(p => Number(p.buy_index) === Number(clickedSuboptimalPoint.buyIndex));
+                    if (foundPosition) {
+                        sellIndex = i;
+                        soldPosition = foundPosition;
+                        break;
+                    }
+                }
+
+                if (sellIndex !== -1 && soldPosition) {
+                    // Set highlight and pinned data together
+                    setHighlightedSegment({
+                        start: clickedSuboptimalPoint.buyIndex,
+                        end: sellIndex,
+                        datasetId: clickedSuboptimalPoint.datasetId
+                    });
+
+                    const choiceEval = data.choice_evaluation[sellIndex] || {};
+                    const formattedPosition = {
+                        crypto: soldPosition.symbol,
+                        timeOpen: data.dates[soldPosition.buy_index],
+                        timeClosed: Object.prototype.hasOwnProperty.call(soldPosition, 'sell_value') ? data.dates[sellIndex] : 'N/A',
+                        priceOpen: soldPosition.initial_price_close,
+                        priceClose: soldPosition.current_price_close,
+                        pnl: soldPosition.profit_and_loss,
+                        bestChoice: choiceEval.best_symbol || 'N/A'
+                    };
+                    
+                    setPinnedData([formattedPosition]);
+                    setPinnedDataIndex(0);
+                } else {
+                    setHighlightedSegment(null);
+                    setPinnedData(null);
+                }
+                return; 
+            }
+
+            setHighlightedSegment(null);
+            const dataIndex = pixelToDataIndex(clickX);
+            let closestDataset = null;
+            minDistance = Infinity;
 
             datasets.forEach(dataset => {
                 if (dataset.data.pnl && dataIndex >= 0 && dataIndex < dataset.data.pnl.length) {
@@ -399,7 +464,7 @@ function Chart({ datasets, currentIndex, zoomRange, onZoomChange }) {
                         const point = getPoint(pnlValue, dataIndex);
                         const canvasY = point.y + m.top;
                         const distance = Math.abs(clickY - canvasY);
-                        if (distance < 20 && distance < minDistance) { // 20px tolerance on Y axis
+                        if (distance < 20 && distance < minDistance) {
                             minDistance = distance;
                             closestDataset = dataset;
                         }
@@ -409,9 +474,7 @@ function Chart({ datasets, currentIndex, zoomRange, onZoomChange }) {
 
             if (closestDataset) {
                 const { data } = closestDataset;
-                // MODIFICATION: Only get closed positions for pinning
                 const positionsAtStep = data.closed_positions[dataIndex] || [];
-
                 if (positionsAtStep.length > 0) {
                     const choiceEval = data.choice_evaluation[dataIndex] || {};
                     const formattedPositions = positionsAtStep.map(pos => ({
@@ -426,7 +489,6 @@ function Chart({ datasets, currentIndex, zoomRange, onZoomChange }) {
                     setPinnedData(formattedPositions);
                     setPinnedDataIndex(0);
                     setHoverData(null);
-                    setHighlightedSegment(null);
                 } else {
                     setPinnedData(null);
                 }
@@ -480,7 +542,7 @@ function Chart({ datasets, currentIndex, zoomRange, onZoomChange }) {
             </div>
             <div className="right-bar">
                 
-                <div className={`filter-controls ${isFilterVisible ? 'table-visible' : 'table-hidden'}`}>
+                <div className="filter-controls">
                     <button onClick={() => setIsFilterVisible(!isFilterVisible)} className="toggle-button">
                         {isFilterVisible ? '-' : '+'}
                     </button>
@@ -503,7 +565,7 @@ function Chart({ datasets, currentIndex, zoomRange, onZoomChange }) {
                                <p>β: max cashout</p>
                                <p>δ: min loss</p>
                                <p>θ: min overfitting</p>
-                               <p>δ: min faux positifs</p>
+                               <p>§: min faux positifs</p>
                                <p>δ: max profit / max return</p>
                                <p>δ: max profit and loss</p>
                            </div>
