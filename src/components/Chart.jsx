@@ -503,7 +503,7 @@ function Chart({ datasets, currentIndex, zoomRange, onZoomChange }) {
                                <p>β: max cashout</p>
                                <p>δ: min loss</p>
                                <p>θ: min overfitting</p>
-                               <p>§: min faux positifs</p>
+                               <p>δ: min faux positifs</p>
                                <p>δ: max profit / max return</p>
                                <p>δ: max profit and loss</p>
                            </div>
