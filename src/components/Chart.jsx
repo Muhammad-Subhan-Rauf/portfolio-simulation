@@ -2,6 +2,8 @@
 
 // Original relative path: components/Chart.jsx
 
+// Original relative path: components/Chart.jsx
+
 import React, { useRef, useEffect, useMemo, useState } from "react";
 import "./Chart.css"; // Import a new CSS file for the chart component
 
@@ -48,6 +50,8 @@ function Chart({
         falsePositive: false,
         falseNegative: false,
     });
+    const [debouncedHoverPoint, setDebouncedHoverPoint] = useState(null);
+    const hoverTimerRef = useRef(null);
 
     // Memoize the complete list of all suboptimal points across all datasets.
     // This is only recalculated if the datasets themselves change.
@@ -84,7 +88,7 @@ function Chart({
 
   const rightBar = document.querySelector(".right-bar");
   const container = document.querySelector(".container-chart-and-controls");
-
+  console.log("CANVAS HEIGHT:   ",canvas.height)
   if (rightBar && container) {
     rightBar.style.height = `${canvas.height}px`;
     container.style.alignItems = "stretch";
@@ -251,8 +255,21 @@ function Chart({
             }
         }
 
+        if (debouncedHoverPoint) {
+            ctx.save();
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([18, 18]);
+            const yAxis = h - ((0 - yMin) / (yMax - yMin)) * h;
+            ctx.beginPath();
+            ctx.moveTo(debouncedHoverPoint.x, debouncedHoverPoint.y);
+            ctx.lineTo(debouncedHoverPoint.x, yAxis > h ? h : yAxis < 0 ? 0 : yAxis);
+            ctx.stroke();
+            ctx.restore();
+        }
+
         ctx.restore();
-    }, [datasets, currentIndex, chartBounds, zoomRange, selection, filters, highlightedSegment, allSuboptimalPoints]);
+    }, [datasets, currentIndex, chartBounds, zoomRange, selection, filters, highlightedSegment, allSuboptimalPoints, debouncedHoverPoint]);
 
     // Effect for mouse listeners
     useEffect(() => {
@@ -293,9 +310,42 @@ function Chart({
             const x = event.clientX - rect.left;
             const y = event.clientY - rect.top;
 
+            if (hoverTimerRef.current) {
+                clearTimeout(hoverTimerRef.current);
+            }
+            setDebouncedHoverPoint(null);
+
             if (selection && selection.isDragging) {
                 const currentX = Math.max(0, Math.min(x - m.left, w));
                 setSelection((prev) => ({ ...prev, endX: currentX }));
+            }
+
+            if (x > m.left && x < m.left + w && y > m.top && y < m.top + h) {
+                const dataIndex = pixelToDataIndex(x);
+                let closestPoint = null;
+                let minDistance = Infinity;
+
+                datasets.forEach(dataset => {
+                    if (dataset.data.pnl && dataIndex >= 0 && dataIndex < dataset.data.pnl.length) {
+                        const pnlValue = dataset.data.pnl[dataIndex];
+                        if (pnlValue !== undefined) {
+                            const point = getPoint(pnlValue, dataIndex);
+                            const canvasY = point.y + m.top;
+                            const distance = Math.abs(y - canvasY);
+                            
+                            if (distance < 20 && distance < minDistance) {
+                                minDistance = distance;
+                                closestPoint = point;
+                            }
+                        }
+                    }
+                });
+
+                if (closestPoint) {
+                    hoverTimerRef.current = setTimeout(() => {
+                        setDebouncedHoverPoint(closestPoint);
+                    }, 0);
+                }
             }
 
             let foundPoint = null;
@@ -327,6 +377,10 @@ function Chart({
         const handleMouseLeave = () => {
             if (selection && selection.isDragging) setSelection(null);
             setTooltip(null);
+            if (hoverTimerRef.current) {
+                clearTimeout(hoverTimerRef.current);
+            }
+            setDebouncedHoverPoint(null);
         };
         
         const handleClick = (event) => {
@@ -417,13 +471,16 @@ function Chart({
             canvas.removeEventListener("mouseleave", handleMouseLeave);
             canvas.removeEventListener("dblclick", handleDoubleClick);
             canvas.removeEventListener("click", handleClick);
+            if (hoverTimerRef.current) {
+                clearTimeout(hoverTimerRef.current);
+            }
         };
     }, [zoomRange, onZoomChange, onZoomReset, selection, datasets, chartBounds, allSuboptimalPoints]);
 
     return (
         <div className="container-chart-and-controls">
             <div className="chart-container">
-                <canvas ref={canvasRef} id="canvas" width="960" height="540"></canvas>
+                <canvas ref={canvasRef} id="canvas" width="1100" height="640"></canvas>
                 {tooltip && (
                     <div className="chart-tooltip" style={{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }}>
                         {tooltip.content}
