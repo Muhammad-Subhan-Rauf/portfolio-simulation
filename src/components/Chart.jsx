@@ -580,11 +580,11 @@ function Chart({ datasets, currentIndex, zoomRange, onZoomChange }) {
                             <div className="legend-details">
                                <p>α: max recall</p>
                                <p>β: max cashout</p>
-                               <p>δ: min loss</p>
-                               <p>θ: min overfitting</p>
-                               <p>δ: min faux positifs</p>
-                               <p>δ: max profit / max return</p>
-                               <p>δ: max profit and loss</p>
+                               <p>γ: min loss</p>
+                               <p>δ: min overfitting</p>
+                               <p>ε: min faux positifs</p>
+                               <p>θ: max profit / max return</p>
+                               <p>Ⲗ: max profit and loss</p>
                            </div>
                         </div>
                     )}
