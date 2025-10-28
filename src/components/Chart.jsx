@@ -63,16 +63,18 @@ function Chart({ datasets, currentIndex, zoomRange, onZoomChange }) {
         const points = [];
         datasets.forEach(dataset => {
             if (dataset.data?.false_positives) {
-                dataset.data.false_positives.forEach((fp, index) => {
+                // For FP, the event happens at buy_index
+                dataset.data.false_positives.forEach((fp) => {
                     if (fp && Object.keys(fp).length > 0) {
-                        points.push({ type: 'fp', index, data: fp, datasetId: dataset.id });
+                        points.push({ type: 'fp', eventIndex: fp.buy_index, data: fp, datasetId: dataset.id });
                     }
                 });
             }
             if (dataset.data?.false_negatives) {
+                // For FN, the event happens at its own index in the array
                 dataset.data.false_negatives.forEach((fn, index) => {
                     if (fn && Object.keys(fn).length > 0) {
-                        points.push({ type: 'fn', index, data: fn, datasetId: dataset.id });
+                        points.push({ type: 'fn', eventIndex: index, data: fn, datasetId: dataset.id });
                     }
                 });
             }
@@ -187,41 +189,52 @@ function Chart({ datasets, currentIndex, zoomRange, onZoomChange }) {
                 ctx.arc(lastPoint.x, lastPoint.y, 4, 0, 2 * Math.PI);
                 ctx.fill();
             }
-
-            // Helper function to draw markers for suboptimal points
-            const drawMarkers = (pointsData, isPositive) => {
-                if (!pointsData) return;
-                for (let i = startDrawIndex; i <= endDrawIndex; i++) {
-                    const item = pointsData[i];
-                    if (item && Object.keys(item).length > 0) {
-                        const point = getPoint(data.pnl[i], i);
-                        const markerSize = 5;
-                        ctx.fillStyle = "#8DBAFD";
-                        let tooltipContent = "";
-                        if (isPositive) {
-                            tooltipContent = `False Positive: Bought ${item.symbol}, but should have bought ${item.best_choice}.`;
+            
+            // --- CORRECTED DRAWING LOGIC ---
+            if (filters.falsePositive && data.false_positives) {
+                data.false_positives.forEach(fp => {
+                    if (fp && Object.keys(fp).length > 0) {
+                        const markerIndex = fp.buy_index;
+                        // Check if the marker should be visible in the current zoom and time range
+                        if (markerIndex >= zoomRange.start && markerIndex <= zoomRange.end && markerIndex <= currentIndex) {
+                            const point = getPoint(data.pnl[markerIndex], markerIndex);
+                            const markerSize = 5;
+                            ctx.fillStyle = "#8DBAFD";
                             ctx.beginPath();
                             ctx.arc(point.x, point.y, markerSize, 0, 2 * Math.PI);
                             ctx.fill();
-                        } else {
-                            tooltipContent = `False Negative: Did not buy, but should have bought ${item.best_choice}.`;
+                            badPurchasePointsRef.current.push({
+                                x: point.x + m.left, y: point.y + m.top, radius: markerSize, 
+                                content: `False Positive: Bought ${fp.symbol}`,
+                            });
+                        }
+                    }
+                });
+            }
+            
+            if (filters.falseNegative && data.false_negatives) {
+                data.false_negatives.forEach((fn, index) => {
+                    if (fn && Object.keys(fn).length > 0) {
+                        const markerIndex = index;
+                        // Check if the marker should be visible
+                        if (markerIndex >= zoomRange.start && markerIndex <= zoomRange.end && markerIndex <= currentIndex) {
+                            const point = getPoint(data.pnl[markerIndex], markerIndex);
+                            const markerSize = 5;
+                            ctx.fillStyle = "#8DBAFD";
                             ctx.beginPath();
                             ctx.moveTo(point.x, point.y - markerSize);
                             ctx.lineTo(point.x - markerSize, point.y + markerSize);
                             ctx.lineTo(point.x + markerSize, point.y + markerSize);
                             ctx.closePath();
                             ctx.fill();
+                            badPurchasePointsRef.current.push({
+                                x: point.x + m.left, y: point.y + m.top, radius: markerSize, 
+                                content: `False Negative: Should have bought ${fn.best_choice}`,
+                            });
                         }
-                        badPurchasePointsRef.current.push({
-                            x: point.x + m.left, y: point.y + m.top, radius: markerSize, content: tooltipContent,
-                        });
                     }
-                }
-            };
-            
-            // Call the helper function based on active filters
-            if (filters.falsePositive) drawMarkers(data.false_positives, true);
-            if (filters.falseNegative) drawMarkers(data.false_negatives, false);
+                });
+            }
         });
 
         if (highlightedSegment) {
@@ -256,7 +269,7 @@ function Chart({ datasets, currentIndex, zoomRange, onZoomChange }) {
             ctx.restore();
         }
         ctx.restore();
-    }, [datasets, currentIndex, chartBounds, zoomRange, selection, filters, highlightedSegment, allSuboptimalPoints, debouncedHoverPoint, windowSize]);
+    }, [datasets, currentIndex, chartBounds, zoomRange, selection, filters, highlightedSegment, debouncedHoverPoint, windowSize]);
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -322,7 +335,12 @@ function Chart({ datasets, currentIndex, zoomRange, onZoomChange }) {
                                 closestPoint = point;
 
                                 if (!pinnedData) {
-                                    const fp = filters.falsePositive ? dataset.data.false_positives?.[dataIndex] : null;
+                                    // --- CORRECTED HOVER LOGIC ---
+                                    let fp = null;
+                                    if (filters.falsePositive && dataset.data.false_positives) {
+                                        // Find an FP where the *decision* was made at this index
+                                        fp = dataset.data.false_positives.find(p => p && p.buy_index === dataIndex);
+                                    }
                                     const fn = filters.falseNegative ? dataset.data.false_negatives?.[dataIndex] : null;
 
                                     if (fp && Object.keys(fp).length > 0) {
@@ -406,10 +424,10 @@ function Chart({ datasets, currentIndex, zoomRange, onZoomChange }) {
                 if (!dataset?.data?.pnl) continue;
 
                 const isPointVisible = (point.type === 'fp' && filters.falsePositive) || (point.type === 'fn' && filters.falseNegative);
-                if (!isPointVisible || point.index < zoomRange.start || point.index > zoomRange.end) continue;
+                if (!isPointVisible || point.eventIndex < zoomRange.start || point.eventIndex > zoomRange.end) continue;
                 
-                const pnlValue = dataset.data.pnl[point.index];
-                const { x, y } = getPoint(pnlValue, point.index);
+                const pnlValue = dataset.data.pnl[point.eventIndex];
+                const { x, y } = getPoint(pnlValue, point.eventIndex);
                 const canvasX = x + m.left;
                 const canvasY = y + m.top;
                 const distance = Math.sqrt(Math.pow(clickX - canvasX, 2) + Math.pow(clickY - canvasY, 2));
@@ -460,7 +478,10 @@ function Chart({ datasets, currentIndex, zoomRange, onZoomChange }) {
 
             if (closestDataset) {
                 const { data } = closestDataset;
-                const fp = filters.falsePositive ? data.false_positives?.[dataIndex] : null;
+                let fp = null;
+                if (filters.falsePositive && data.false_positives) {
+                    fp = data.false_positives.find(p => p && p.buy_index === dataIndex);
+                }
                 const fn = filters.falseNegative ? data.false_negatives?.[dataIndex] : null;
 
                 if (fp && Object.keys(fp).length > 0) {

@@ -47,45 +47,41 @@ export const usePortfolioData = () => {
 
   const loadData = useCallback(async (files) => {
     setIsLoading(true);
-    setFileStatus(TEXTS.file_status_loading);
-
-    const processFile = async (file, color) => {
-        try {
-            const fileName = file.name;
-            const text = await file.text();
-            const jsonData = JSON.parse(text);
-            const processed = processData(jsonData);
-            if (processed) {
-                return {
-                    id: `${fileName}-${Date.now()}`,
-                    data: processed,
-                    operatorName: getOperatorName(fileName),
-                    fileName,
-                    color: color,
-                };
-            }
-        } catch (error) {
-            console.error(`Failed to load or parse ${file.name}:`, error);
-        }
-        return null;
-    };
-
+    
+    // This part handles user-provided files
     if (files && files.length > 0) {
-      // 1. Create a frequency map of currently used colors.
+      setFileStatus(TEXTS.file_status_loading);
+
+      const processFile = async (file, color) => {
+          try {
+              const fileName = file.name;
+              const text = await file.text();
+              const jsonData = JSON.parse(text);
+              const processed = processData(jsonData);
+              if (processed) {
+                  return {
+                      id: `${fileName}-${Date.now()}`,
+                      data: processed,
+                      operatorName: getOperatorName(fileName),
+                      fileName,
+                      color: color,
+                  };
+              }
+          } catch (error) {
+              console.error(`Failed to load or parse ${file.name}:`, error);
+          }
+          return null;
+      };
+      
       const colorCounts = datasets.reduce((acc, ds) => {
         acc[ds.color] = (acc[ds.color] || 0) + 1;
         return acc;
       }, {});
-
-      // 2. Sort the preset colors by their usage count (ascending).
-      // Unused colors will have a count of 0 and will appear first.
       const sortedColorCandidates = [...PRESET_COLORS].sort((colorA, colorB) => {
           const countA = colorCounts[colorA] || 0;
           const countB = colorCounts[colorB] || 0;
           return countA - countB;
       });
-
-      // 3. Assign colors to new files cyclically from the sorted list.
       const newDatasetsPromises = Array.from(files).map((file, index) => {
           const colorToAssign = sortedColorCandidates[index % sortedColorCandidates.length];
           return processFile(file, colorToAssign);
@@ -95,27 +91,36 @@ export const usePortfolioData = () => {
       setDatasets(prev => [...prev, ...newDatasets]);
       setFileStatus(`${newDatasets.length} file(s) loaded.`);
 
-    } else if (datasets.length === 0) { // Handle initial default load
+    // This part handles the initial, optional default file load
+    } else if (datasets.length === 0 && !files) { 
       try {
         const operatorName = 'Ⲗ';
         const fileName = `${operatorName}_consolidated_json.json`;
         const response = await fetch(fileName);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const jsonData = await response.json();
-        const processed = processData(jsonData);
-        if (processed) {
-          setDatasets([{
-            id: `default-${Date.now()}`,
-            data: processed,
-            operatorName: getOperatorName(fileName),
-            fileName,
-            color: PRESET_COLORS[0] // Always start with the first color
-          }]);
-          setFileStatus(TEXTS.file_status_default);
+        
+        // Gracefully handle missing file (e.g., 404 Not Found)
+        if (!response.ok) {
+          console.warn("Default data file not found or failed to load. Starting with empty state.");
+          setFileStatus(''); // Set a neutral status, no error for the user
+          setDatasets([]);
+        } else {
+          const jsonData = await response.json();
+          const processed = processData(jsonData);
+          if (processed) {
+            setDatasets([{
+              id: `default-${Date.now()}`,
+              data: processed,
+              operatorName: getOperatorName(fileName),
+              fileName,
+              color: PRESET_COLORS[0]
+            }]);
+            setFileStatus(TEXTS.file_status_default);
+          }
         }
       } catch (error) {
+        // Handle JSON parsing errors or other unexpected issues silently
         console.error("Failed to load or parse default data:", error);
-        setFileStatus(`Error loading default data: ${error.message}`);
+        setFileStatus(''); // Set a neutral status
         setDatasets([]);
       }
     }
