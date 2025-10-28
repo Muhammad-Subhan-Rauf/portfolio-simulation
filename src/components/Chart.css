@@ -128,7 +128,7 @@
 
 /* This class will be added in the JSX to show the checked state */
 .checkbox.checked {
-  background-color: #FF0043;
+  background-color: #8B1A1A;
 }
 
 .filter-label {
