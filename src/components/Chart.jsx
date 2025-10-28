@@ -1,5 +1,7 @@
 // Original relative path: components/Chart.jsx
 
+// Original relative path: components/Chart.jsx
+
 import React, { useRef, useEffect, useMemo, useState } from "react";
 import "./Chart.css";
 import DataDisplayBox from './DataDisplayBox';
@@ -60,24 +62,24 @@ function Chart({ datasets, currentIndex, zoomRange, onZoomChange }) {
     const allSuboptimalPoints = useMemo(() => {
         const points = [];
         datasets.forEach(dataset => {
-            if (dataset.data?.choice_evaluation) {
-                dataset.data.choice_evaluation.forEach((evaluation, index) => {
-                    if (evaluation) {
-                        const isFalsePositive = evaluation.selected_symbol && (evaluation.best_symbol === "NULL" || (evaluation.best_symbol !== evaluation.selected_symbol && evaluation.selected_symbol !== "NULL"));
-                        const isFalseNegative = evaluation.selected_symbol === "NULL" && evaluation.best_symbol && evaluation.best_symbol !== "NULL";
-                        if (isFalseNegative || isFalsePositive) {
-                            points.push({
-                                buyIndex: index,
-                                symbol: evaluation.selected_symbol,
-                                datasetId: dataset.id,
-                            });
-                        }
+            if (dataset.data?.false_positives) {
+                dataset.data.false_positives.forEach((fp, index) => {
+                    if (fp && Object.keys(fp).length > 0) {
+                        points.push({ type: 'fp', index, data: fp, datasetId: dataset.id });
+                    }
+                });
+            }
+            if (dataset.data?.false_negatives) {
+                dataset.data.false_negatives.forEach((fn, index) => {
+                    if (fn && Object.keys(fn).length > 0) {
+                        points.push({ type: 'fn', index, data: fn, datasetId: dataset.id });
                     }
                 });
             }
         });
         return points;
     }, [datasets]);
+
 
     const handleFilterChange = (filterName) => {
         setFilters(prev => ({ ...prev, [filterName]: !prev[filterName] }));
@@ -186,38 +188,40 @@ function Chart({ datasets, currentIndex, zoomRange, onZoomChange }) {
                 ctx.fill();
             }
 
-            if (data.choice_evaluation) {
-                 for (let i = startDrawIndex; i <= endDrawIndex; i++) {
-                    const evaluation = data.choice_evaluation[i];
-                    if (evaluation && evaluation.correct_choice !== 1) {
-                        const isFalsePositive = evaluation.selected_symbol && (evaluation.best_symbol === "NULL" || (evaluation.best_symbol !== evaluation.selected_symbol && evaluation.selected_symbol !== "NULL"));
-                        const isFalseNegative = evaluation.selected_symbol === "NULL" && evaluation.best_symbol && evaluation.best_symbol !== "NULL";
-                        if ((isFalsePositive && filters.falsePositive) || (isFalseNegative && filters.falseNegative)) {
-                            const point = getPoint(data.pnl[i], i);
-                            const markerSize = 5;
-                            ctx.fillStyle = "#8DBAFD";
-                            let tooltipContent = "";
-                            if (isFalsePositive) {
-                                tooltipContent = `False Positive: Bought ${evaluation.selected_symbol}, but should not have.`;
-                                ctx.beginPath();
-                                ctx.arc(point.x, point.y, markerSize, 0, 2 * Math.PI);
-                                ctx.fill();
-                            } else {
-                                tooltipContent = `False Negative: Did not buy, but should have bought ${evaluation.best_symbol}.`;
-                                ctx.beginPath();
-                                ctx.moveTo(point.x, point.y - markerSize);
-                                ctx.lineTo(point.x - markerSize, point.y + markerSize);
-                                ctx.lineTo(point.x + markerSize, point.y + markerSize);
-                                ctx.closePath();
-                                ctx.fill();
-                            }
-                            badPurchasePointsRef.current.push({
-                                x: point.x + m.left, y: point.y + m.top, radius: markerSize, content: tooltipContent,
-                            });
+            // Helper function to draw markers for suboptimal points
+            const drawMarkers = (pointsData, isPositive) => {
+                if (!pointsData) return;
+                for (let i = startDrawIndex; i <= endDrawIndex; i++) {
+                    const item = pointsData[i];
+                    if (item && Object.keys(item).length > 0) {
+                        const point = getPoint(data.pnl[i], i);
+                        const markerSize = 5;
+                        ctx.fillStyle = "#8DBAFD";
+                        let tooltipContent = "";
+                        if (isPositive) {
+                            tooltipContent = `False Positive: Bought ${item.symbol}, but should have bought ${item.best_choice}.`;
+                            ctx.beginPath();
+                            ctx.arc(point.x, point.y, markerSize, 0, 2 * Math.PI);
+                            ctx.fill();
+                        } else {
+                            tooltipContent = `False Negative: Did not buy, but should have bought ${item.best_choice}.`;
+                            ctx.beginPath();
+                            ctx.moveTo(point.x, point.y - markerSize);
+                            ctx.lineTo(point.x - markerSize, point.y + markerSize);
+                            ctx.lineTo(point.x + markerSize, point.y + markerSize);
+                            ctx.closePath();
+                            ctx.fill();
                         }
+                        badPurchasePointsRef.current.push({
+                            x: point.x + m.left, y: point.y + m.top, radius: markerSize, content: tooltipContent,
+                        });
                     }
                 }
-            }
+            };
+            
+            // Call the helper function based on active filters
+            if (filters.falsePositive) drawMarkers(data.false_positives, true);
+            if (filters.falseNegative) drawMarkers(data.false_negatives, false);
         });
 
         if (highlightedSegment) {
@@ -318,20 +322,28 @@ function Chart({ datasets, currentIndex, zoomRange, onZoomChange }) {
                                 closestPoint = point;
 
                                 if (!pinnedData) {
-                                    const closedPositions = dataset.data.closed_positions[dataIndex] || [];
-                                    const positionToShow = closedPositions[0];
-                                    const choiceEval = dataset.data.choice_evaluation[dataIndex] || {};
+                                    const fp = filters.falsePositive ? dataset.data.false_positives?.[dataIndex] : null;
+                                    const fn = filters.falseNegative ? dataset.data.false_negatives?.[dataIndex] : null;
 
-                                    if (positionToShow) {
-                                        dataForHover = {
-                                            crypto: positionToShow.symbol,
-                                            timeOpen: dataset.data.dates[positionToShow.buy_index],
-                                            timeClosed: Object.prototype.hasOwnProperty.call(positionToShow, 'sell_value') ? dataset.data.dates[dataIndex] : 'N/A',
-                                            priceOpen: positionToShow.initial_price_close,
-                                            priceClose: positionToShow.current_price_close,
-                                            pnl: positionToShow.profit_and_loss,
-                                            bestChoice: choiceEval.best_symbol || 'N/A'
-                                        };
+                                    if (fp && Object.keys(fp).length > 0) {
+                                        dataForHover = { ...fp, type: 'false_positive' };
+                                    } else if (fn && Object.keys(fn).length > 0) {
+                                        dataForHover = { ...fn, type: 'false_negative' };
+                                    } else {
+                                        const closedPositions = dataset.data.closed_positions[dataIndex] || [];
+                                        const positionToShow = closedPositions[0];
+                                        if (positionToShow) {
+                                            dataForHover = {
+                                                type: 'closed_position',
+                                                symbol: positionToShow.symbol,
+                                                time_open: dataset.data.dates[positionToShow.buy_index],
+                                                time_closed: Object.prototype.hasOwnProperty.call(positionToShow, 'sell_value') ? dataset.data.dates[dataIndex] : 'N/A',
+                                                price_open: positionToShow.initial_price_close,
+                                                price_close: positionToShow.current_price_close,
+                                                pnl: positionToShow.profit_and_loss,
+                                                best_choice: dataset.data.choice_evaluation?.[dataIndex]?.best_symbol || 'N/A'
+                                            };
+                                        }
                                     }
                                 }
                             }
@@ -391,64 +403,38 @@ function Chart({ datasets, currentIndex, zoomRange, onZoomChange }) {
 
             for (const point of allSuboptimalPoints) {
                 const dataset = datasets.find(ds => ds.id === point.datasetId);
-                if (dataset?.data?.pnl && point.buyIndex >= zoomRange.start && point.buyIndex <= zoomRange.end) {
-                    const pnlValue = dataset.data.pnl[point.buyIndex];
-                    const { x, y } = getPoint(pnlValue, point.buyIndex);
-                    const canvasX = x + m.left;
-                    const canvasY = y + m.top;
-                    const distance = Math.sqrt(Math.pow(clickX - canvasX, 2) + Math.pow(clickY - canvasY, 2));
+                if (!dataset?.data?.pnl) continue;
 
-                    if (distance < 10 && distance < minDistance) {
-                        minDistance = distance;
-                        clickedSuboptimalPoint = point;
-                    }
+                const isPointVisible = (point.type === 'fp' && filters.falsePositive) || (point.type === 'fn' && filters.falseNegative);
+                if (!isPointVisible || point.index < zoomRange.start || point.index > zoomRange.end) continue;
+                
+                const pnlValue = dataset.data.pnl[point.index];
+                const { x, y } = getPoint(pnlValue, point.index);
+                const canvasX = x + m.left;
+                const canvasY = y + m.top;
+                const distance = Math.sqrt(Math.pow(clickX - canvasX, 2) + Math.pow(clickY - canvasY, 2));
+
+                if (distance < 10 && distance < minDistance) {
+                    minDistance = distance;
+                    clickedSuboptimalPoint = point;
                 }
             }
 
             if (clickedSuboptimalPoint) {
-                const dataset = datasets.find(ds => ds.id === clickedSuboptimalPoint.datasetId);
-                if (!dataset) return;
-
-                const { data } = dataset;
-                const closedPositions = data.closed_positions;
-                let sellIndex = -1;
-                let soldPosition = null;
-
-                for (let i = clickedSuboptimalPoint.buyIndex + 1; i < closedPositions.length; i++) {
-                    const positionsAtStep = closedPositions[i] || [];
-                    const foundPosition = positionsAtStep.find(p => Number(p.buy_index) === Number(clickedSuboptimalPoint.buyIndex));
-                    if (foundPosition) {
-                        sellIndex = i;
-                        soldPosition = foundPosition;
-                        break;
-                    }
-                }
-
-                if (sellIndex !== -1 && soldPosition) {
-                    // Set highlight and pinned data together
+                if (clickedSuboptimalPoint.type === 'fp') {
+                    const fp = clickedSuboptimalPoint.data;
                     setHighlightedSegment({
-                        start: clickedSuboptimalPoint.buyIndex,
-                        end: sellIndex,
+                        start: fp.buy_index,
+                        end: fp.sell_index,
                         datasetId: clickedSuboptimalPoint.datasetId
                     });
-
-                    const choiceEval = data.choice_evaluation[sellIndex] || {};
-                    const formattedPosition = {
-                        crypto: soldPosition.symbol,
-                        timeOpen: data.dates[soldPosition.buy_index],
-                        timeClosed: Object.prototype.hasOwnProperty.call(soldPosition, 'sell_value') ? data.dates[sellIndex] : 'N/A',
-                        priceOpen: soldPosition.initial_price_close,
-                        priceClose: soldPosition.current_price_close,
-                        pnl: soldPosition.profit_and_loss,
-                        bestChoice: choiceEval.best_symbol || 'N/A'
-                    };
-                    
-                    setPinnedData([formattedPosition]);
-                    setPinnedDataIndex(0);
-                } else {
+                    setPinnedData([{ ...fp, type: 'false_positive' }]);
+                } else { // False Negative
+                    const fn = clickedSuboptimalPoint.data;
                     setHighlightedSegment(null);
-                    setPinnedData(null);
+                    setPinnedData([{ ...fn, type: 'false_negative' }]);
                 }
+                setPinnedDataIndex(0);
                 return; 
             }
 
@@ -474,24 +460,34 @@ function Chart({ datasets, currentIndex, zoomRange, onZoomChange }) {
 
             if (closestDataset) {
                 const { data } = closestDataset;
-                const positionsAtStep = data.closed_positions[dataIndex] || [];
-                if (positionsAtStep.length > 0) {
-                    const choiceEval = data.choice_evaluation[dataIndex] || {};
-                    const formattedPositions = positionsAtStep.map(pos => ({
-                        crypto: pos.symbol,
-                        timeOpen: data.dates[pos.buy_index],
-                        timeClosed: Object.prototype.hasOwnProperty.call(pos, 'sell_value') ? data.dates[dataIndex] : 'N/A',
-                        priceOpen: pos.initial_price_close,
-                        priceClose: pos.current_price_close,
-                        pnl: pos.profit_and_loss,
-                        bestChoice: choiceEval.best_symbol || 'N/A'
-                    }));
-                    setPinnedData(formattedPositions);
-                    setPinnedDataIndex(0);
-                    setHoverData(null);
+                const fp = filters.falsePositive ? data.false_positives?.[dataIndex] : null;
+                const fn = filters.falseNegative ? data.false_negatives?.[dataIndex] : null;
+
+                if (fp && Object.keys(fp).length > 0) {
+                     setPinnedData([{ ...fp, type: 'false_positive' }]);
+                } else if (fn && Object.keys(fn).length > 0) {
+                    setPinnedData([{ ...fn, type: 'false_negative' }]);
                 } else {
-                    setPinnedData(null);
+                    const positionsAtStep = data.closed_positions[dataIndex] || [];
+                    if (positionsAtStep.length > 0) {
+                        const choiceEval = data.choice_evaluation?.[dataIndex] || {};
+                        const formattedPositions = positionsAtStep.map(pos => ({
+                            type: 'closed_position',
+                            symbol: pos.symbol,
+                            time_open: data.dates[pos.buy_index],
+                            time_closed: Object.prototype.hasOwnProperty.call(pos, 'sell_value') ? data.dates[dataIndex] : 'N/A',
+                            price_open: pos.initial_price_close,
+                            price_close: pos.current_price_close,
+                            pnl: pos.profit_and_loss,
+                            best_choice: choiceEval.best_symbol || 'N/A'
+                        }));
+                        setPinnedData(formattedPositions);
+                    } else {
+                         setPinnedData(null);
+                    }
                 }
+                setPinnedDataIndex(0);
+                setHoverData(null);
             } else {
                  setPinnedData(null);
             }
@@ -518,7 +514,7 @@ function Chart({ datasets, currentIndex, zoomRange, onZoomChange }) {
             canvas.removeEventListener("click", handleClick);
             if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
         };
-    }, [zoomRange, onZoomChange, selection, datasets, chartBounds, allSuboptimalPoints, windowSize, pinnedData]);
+    }, [zoomRange, onZoomChange, selection, datasets, chartBounds, allSuboptimalPoints, windowSize, pinnedData, filters]);
 
     const handlePinnedIndexChange = (direction) => {
         setPinnedDataIndex(prev => {

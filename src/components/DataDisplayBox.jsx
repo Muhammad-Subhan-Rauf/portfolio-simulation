@@ -1,5 +1,7 @@
 // Original relative path: components/DataDisplayBox.jsx
 
+// Original relative path: components/DataDisplayBox.jsx
+
 import React from 'react';
 import { fmt } from '../utils/formatters';
 
@@ -46,22 +48,52 @@ const styles = {
   }
 };
 
+// Helper function to format keys from snake_case to Title Case
+const formatLabel = (key) => {
+  if (key === 'pnl') return 'P&L';
+  return key
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, char => char.toUpperCase());
+};
+
+// Helper function to format values based on their key or type
+const formatValue = (key, value) => {
+    if (value === null || value === undefined || value === "NULL") return 'N/A';
+    
+    if (typeof value === 'number') {
+        if (key.includes('price')) return fmt(value, 6);
+        if (key.includes('profit') || key.includes('pnl')) return `${fmt(value, 2)}$`;
+        if (key.includes('quantity') || key.includes('value')) return fmt(value, 2);
+        return fmt(value);
+    }
+
+    if (typeof value === 'string' && (key.includes('date') || key.includes('data'))) {
+        const date = new Date(value);
+        if (!isNaN(date.getTime())) {
+            return date.toLocaleString('en-US', {
+                year: 'numeric', month: 'short', day: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            });
+        }
+    }
+    
+    return String(value);
+};
+
+
 function DataDisplayBox({ hoverData, pinnedData, pinnedDataIndex, onPinnedIndexChange }) {
   const dataToShow = pinnedData ? pinnedData[pinnedDataIndex] : hoverData;
 
   if (!dataToShow) {
     return null;
   }
-
-  const formatDateTime = (dateString) => {
-    if (!dateString || dateString === 'N/A') return 'N/A';
-    return new Date(dateString).toLocaleString('en-US', {
-      year: 'numeric', month: 'short', day: 'numeric',
-      hour: '2-digit', minute: '2-digit'
-    });
-  };
-
+  
   const isPinned = !!pinnedData;
+
+  // Filter out internal properties we don't want to display
+  const displayableEntries = Object.entries(dataToShow).filter(([key]) => 
+    !key.endsWith('_index') && key !== 'type' && !key.endsWith('symbol_index')
+  );
 
   return (
     <div style={styles.container}>
@@ -70,34 +102,12 @@ function DataDisplayBox({ hoverData, pinnedData, pinnedDataIndex, onPinnedIndexC
       </h3>
       <table style={styles.table} className='no-bords'>
         <tbody>
-          <tr>
-            <td style={styles.labelCell} className='no-bords'>Crypto:</td>
-            <td style={styles.valueCell} className='no-bords'>{dataToShow.crypto}</td>
-          </tr>
-          <tr>
-            <td style={styles.labelCell} className='no-bords'>Time Open:</td>
-            <td style={styles.valueCell} className='no-bords'>{formatDateTime(dataToShow.timeOpen)}</td>
-          </tr>
-          <tr>
-            <td style={styles.labelCell} className='no-bords'>Time Closed:</td>
-            <td style={styles.valueCell} className='no-bords'>{formatDateTime(dataToShow.timeClosed)}</td>
-          </tr>
-          <tr>
-            <td style={styles.labelCell} className='no-bords'>Price Open:</td>
-            <td style={styles.valueCell} className='no-bords'>{fmt(dataToShow.priceOpen, 6)}</td>
-          </tr>
-          <tr>
-            <td style={styles.labelCell} className='no-bords'>Price Close:</td>
-            <td style={styles.valueCell} className='no-bords'>{fmt(dataToShow.priceClose, 6)}</td>
-          </tr>
-          <tr>
-            <td style={styles.labelCell} className='no-bords'>P&L:</td>
-            <td style={styles.valueCell} className='no-bords'>{fmt(dataToShow.pnl, 2)}$</td>
-          </tr>
-          <tr>
-            <td style={styles.labelCell} className='no-bords'>Best Choice:</td>
-            <td style={styles.valueCell} className='no-bords'>{dataToShow.bestChoice}</td>
-          </tr>
+          {displayableEntries.map(([key, value]) => (
+            <tr key={key}>
+              <td style={styles.labelCell} className='no-bords'>{formatLabel(key)}:</td>
+              <td style={styles.valueCell} className='no-bords'>{formatValue(key, value)}</td>
+            </tr>
+          ))}
         </tbody>
       </table>
       {isPinned && pinnedData.length > 1 && (
